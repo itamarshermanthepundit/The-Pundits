@@ -1462,7 +1462,7 @@
             Already signed up?
             <input id="returnEmailInput" type="email" placeholder="Enter your email" autocomplete="email">
           </label>
-          <button class="button primary" id="returnSignInOnline" type="button">Send login link</button>
+          <button class="button primary" id="returnSignInOnline" type="button">Continue</button>
         </div>
         <div class="dashboard-tabs" aria-label="Dashboard pages">
           <button class="dashboard-tab active" type="button" data-dashboard-tab="picks">Picks</button>
@@ -1569,7 +1569,7 @@
                 Email
                 <input id="firstReturnEmailInput" type="email" placeholder="you@example.com" autocomplete="email">
               </label>
-              <button class="button primary" id="firstReturnSignInOnline" type="button">Send login link</button>
+              <button class="button primary" id="firstReturnSignInOnline" type="button">Continue</button>
             </div>
             <h3>First-time setup</h3>
             <div class="form-grid">
@@ -1584,7 +1584,7 @@
             </div>
             <div class="actions">
               <button class="button" disabled>Back</button>
-              <button class="button" id="signInOnline" type="button">Send login link</button>
+              <button class="button" id="signInOnline" type="button">Continue</button>
               <button class="button primary" data-next>Save and continue</button>
             </div>
           </div>
@@ -2855,7 +2855,8 @@
       });
     });
 
-    async function sendLoginLinkFrom(inputId) {
+    async function continueOrSendLogin(inputId, buttonId) {
+      const button = document.getElementById(buttonId);
       const email = document.getElementById(inputId).value.trim();
       if (!email) {
         showToast("Add your email first");
@@ -2864,13 +2865,32 @@
 
       state.login.email = email;
       saveState();
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = "Checking...";
+      const user = await window.PunditsCloud.getUser();
+      if (user) {
+        await hydrateOnlineState();
+        await loadDashboardData();
+        showReturningHome();
+        button.disabled = false;
+        button.textContent = originalText;
+        return;
+      }
+
+      button.textContent = "Sending...";
       const result = await window.PunditsCloud.signIn(email);
       showToast(result.message);
+      button.textContent = result.ok ? "Email sent" : originalText;
+      window.setTimeout(() => {
+        button.disabled = false;
+        button.textContent = originalText;
+      }, result.ok ? 12000 : 3000);
     }
 
-    document.getElementById("signInOnline").addEventListener("click", () => sendLoginLinkFrom("emailInput"));
-    document.getElementById("returnSignInOnline").addEventListener("click", () => sendLoginLinkFrom("returnEmailInput"));
-    document.getElementById("firstReturnSignInOnline").addEventListener("click", () => sendLoginLinkFrom("firstReturnEmailInput"));
+    document.getElementById("signInOnline").addEventListener("click", () => continueOrSendLogin("emailInput", "signInOnline"));
+    document.getElementById("returnSignInOnline").addEventListener("click", () => continueOrSendLogin("returnEmailInput", "returnSignInOnline"));
+    document.getElementById("firstReturnSignInOnline").addEventListener("click", () => continueOrSendLogin("firstReturnEmailInput", "firstReturnSignInOnline"));
     document.getElementById("dashboardLeagueSelect").addEventListener("change", async event => {
       const league = (state.league.memberships || []).find(item => item.id === event.target.value);
       if (!league) return;

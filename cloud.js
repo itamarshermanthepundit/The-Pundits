@@ -13,13 +13,26 @@
     return data.user || null;
   }
 
+  async function getSession() {
+    if (!client) return null;
+    const { data } = await client.auth.getSession();
+    return data.session || null;
+  }
+
   async function signIn(email) {
     if (!client) return { ok: false, message: "Supabase is not configured yet." };
     const { error } = await client.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: window.location.href }
     });
-    return error ? { ok: false, message: error.message } : { ok: true, message: "Check your email for the login link." };
+    if (!error) return { ok: true, message: "Check your email for the login link." };
+    const isRateLimit = error.message.toLowerCase().includes("rate limit");
+    return {
+      ok: false,
+      message: isRateLimit
+        ? "Too many login emails were sent. Wait a few minutes, then try again."
+        : error.message
+    };
   }
 
   async function signOut() {
@@ -249,6 +262,7 @@
     signIn,
     signOut,
     getUser,
+    getSession,
     getProfile,
     saveProfile,
     ensureProfile,
