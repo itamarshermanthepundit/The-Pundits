@@ -2107,7 +2107,8 @@
 
     function goToSlide(index) {
       document.getElementById("returningHome").classList.remove("active");
-      activeSlide = Math.max(0, Math.min(6, index));
+      const lowestAllowedSlide = state.dashboard?.userId ? 1 : 0;
+      activeSlide = Math.max(lowestAllowedSlide, Math.min(6, index));
       document.querySelectorAll(".slide").forEach(slide => {
         slide.classList.toggle("active", Number(slide.dataset.slide) === activeSlide);
       });
@@ -2708,14 +2709,22 @@
       if (!window.PunditsCloud?.isReady()) return;
       const user = await window.PunditsCloud.getUser();
       if (!user) return;
-      let isReturningUser = false;
+      let isReturningUser = true;
       state.dashboard.userId = user.id;
 
       const profileResult = await window.PunditsCloud.getProfile();
       if (profileResult.ok && profileResult.profile) {
-        isReturningUser = true;
         state.login.email = profileResult.profile.email || state.login.email;
         state.login.squad = profileResult.profile.squad_name || state.login.squad;
+      } else {
+        const createdProfile = await window.PunditsCloud.ensureProfile({
+          email: state.login.email || user.email || "",
+          squadName: state.login.squad || (user.email || "").split("@")[0] || "New Pundit"
+        });
+        if (createdProfile.ok && createdProfile.profile) {
+          state.login.email = createdProfile.profile.email || state.login.email;
+          state.login.squad = createdProfile.profile.squad_name || state.login.squad;
+        }
       }
 
       if (state.login.email && state.login.squad) {
