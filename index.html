@@ -2099,9 +2099,14 @@
       document.getElementById("brandSubtitle").textContent = squad;
     }
 
+    function setProgressVisibility() {
+      const progress = document.querySelector(".progress");
+      const onLoginSlide = document.getElementById("returningHome").classList.contains("active") || activeSlide === 0;
+      progress.style.display = onLoginSlide ? "none" : "";
+    }
+
     function goToSlide(index) {
       document.getElementById("returningHome").classList.remove("active");
-      document.querySelector(".progress").style.display = "";
       activeSlide = Math.max(0, Math.min(6, index));
       document.querySelectorAll(".slide").forEach(slide => {
         slide.classList.toggle("active", Number(slide.dataset.slide) === activeSlide);
@@ -2109,6 +2114,7 @@
       document.querySelectorAll(".dot").forEach(dot => {
         dot.classList.toggle("active", Number(dot.dataset.go) === activeSlide);
       });
+      setProgressVisibility();
       window.scrollTo({ top: 0, behavior: "smooth" });
       saveState();
     }
@@ -2117,7 +2123,7 @@
       document.getElementById("returningHome").classList.add("active");
       document.querySelectorAll(".slide").forEach(slide => slide.classList.remove("active"));
       document.querySelectorAll(".dot").forEach(dot => dot.classList.remove("active"));
-      document.querySelector(".progress").style.display = "none";
+      setProgressVisibility();
       renderDashboard();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
