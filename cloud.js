@@ -40,6 +40,28 @@
     return error ? { ok: false, message: error.message } : { ok: true };
   }
 
+  async function ensureProfile(profile = {}) {
+    const user = await getUser();
+    if (!client || !user) return { ok: false, message: "Sign in first." };
+
+    const { data: existing, error: existingError } = await client
+      .from("profiles")
+      .select("id,email,squad_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (existingError) return { ok: false, message: existingError.message };
+    if (existing) return { ok: true, profile: existing };
+
+    const email = profile.email || user.email || "";
+    const squadName = profile.squadName || email.split("@")[0] || "New Pundit";
+    const { data, error } = await client.from("profiles").insert({
+      id: user.id,
+      email,
+      squad_name: squadName
+    }).select().single();
+    return error ? { ok: false, message: error.message } : { ok: true, profile: data };
+  }
+
   async function getProfile() {
     const user = await getUser();
     if (!client || !user) return { ok: false, message: "Not signed in." };
@@ -50,6 +72,8 @@
   async function createLeague(name) {
     const user = await getUser();
     if (!client || !user) return { ok: false, message: "Sign in before creating a league." };
+    const profile = await ensureProfile();
+    if (!profile.ok) return profile;
 
     const code = `WC26-${Math.floor(1000 + Math.random() * 9000)}`;
     const { data, error } = await client.from("leagues").insert({
@@ -66,6 +90,8 @@
   async function joinLeague(code) {
     const user = await getUser();
     if (!client || !user) return { ok: false, message: "Sign in before joining a league." };
+    const profile = await ensureProfile();
+    if (!profile.ok) return profile;
 
     const { data: league, error: leagueError } = await client
       .from("leagues")
@@ -77,6 +103,19 @@
     const { error } = await client.from("league_members").insert({ league_id: league.id, user_id: user.id });
     if (error && !error.message.includes("duplicate key")) return { ok: false, message: error.message };
     return { ok: true, league };
+  }
+
+  async function leaveLeague(leagueId) {
+    const user = await getUser();
+    if (!client || !user || !leagueId) return { ok: false, message: "Choose a league first." };
+
+    const { error } = await client
+      .from("league_members")
+      .delete()
+      .eq("league_id", leagueId)
+      .eq("user_id", user.id);
+
+    return error ? { ok: false, message: error.message } : { ok: true };
   }
 
   async function getLeagues() {
@@ -191,8 +230,10 @@
     getUser,
     getProfile,
     saveProfile,
+    ensureProfile,
     createLeague,
     joinLeague,
+    leaveLeague,
     getLeagues,
     ensureStarterLeague,
     getPredictions,

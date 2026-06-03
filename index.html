@@ -960,12 +960,35 @@
     .league-item {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       gap: 12px;
       padding: 11px 12px;
       border-radius: var(--radius);
       background: var(--soft);
       color: var(--muted);
       font-size: .9rem;
+    }
+
+    .league-info {
+      min-width: 0;
+    }
+
+    .league-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .mini-button {
+      min-height: 30px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      color: var(--danger);
+      background: white;
+      font-size: .8rem;
+      font-weight: 900;
     }
 
     .league-item strong {
@@ -2286,7 +2309,7 @@
           state.league.name = result.league.name;
           state.league.code = result.league.code;
           state.league.activeLeagueId = result.league.id;
-          addLeagueMembership(result.league.name, result.league.code, "Created");
+          addLeagueMembership(result.league.name, result.league.code, "Created", result.league.id);
           renderLeague();
           await savePredictionsOnlineSilently();
           saveState("League created online");
@@ -2311,15 +2334,18 @@
       }
 
       if (window.PunditsCloud?.isReady()) {
+        await saveLogin();
         const result = await window.PunditsCloud.joinLeague(code);
         if (result.ok) {
           state.league.joined = result.league.code;
           state.league.activeLeagueId = result.league.id;
-          addLeagueMembership(result.league.name, result.league.code, "Joined");
+          addLeagueMembership(result.league.name, result.league.code, "Joined", result.league.id);
           renderLeague();
           await hydratePredictions(result.league.id);
           renderGroups();
           renderBonus();
+          await hydrateOnlineState();
+          await loadDashboardData();
           saveState("League joined online");
           return;
         }
@@ -2333,11 +2359,11 @@
       saveState("League joined");
     }
 
-    function addLeagueMembership(name, code, status) {
+    function addLeagueMembership(name, code, status, id = "") {
       state.league.memberships ||= [];
       const exists = state.league.memberships.some(league => league.code === code);
       if (!exists) {
-        state.league.memberships.unshift({ name, code, status });
+        state.league.memberships.unshift({ name, code, status, id });
       }
     }
 
@@ -2350,11 +2376,41 @@
       }
 
       list.innerHTML = leagues.map(league => `
-        <div class="league-item">
-          <span><strong>${escapeHtml(league.name)}</strong> ${escapeHtml(league.status)}</span>
-          <span>${escapeHtml(league.code)}</span>
+        <div class="league-item" data-league-id="${escapeHtml(league.id || "")}" data-league-code="${escapeHtml(league.code)}">
+          <span class="league-info"><strong>${escapeHtml(league.name)}</strong> ${escapeHtml(league.status)}</span>
+          <span class="league-tools">
+            <span>${escapeHtml(league.code)}</span>
+            ${league.id ? '<button class="mini-button" type="button" data-leave-league>Leave</button>' : ""}
+          </span>
         </div>
       `).join("");
+    }
+
+    async function leaveLeagueById(leagueId) {
+      if (!leagueId) return;
+      if (!window.PunditsCloud?.isReady()) {
+        state.league.memberships = (state.league.memberships || []).filter(league => league.id !== leagueId);
+        renderLeague();
+        renderDashboard();
+        saveState("League left");
+        return;
+      }
+
+      const result = await window.PunditsCloud.leaveLeague(leagueId);
+      if (!result.ok) {
+        showToast(result.message);
+        return;
+      }
+
+      state.league.memberships = (state.league.memberships || []).filter(league => league.id !== leagueId);
+      const nextLeague = state.league.memberships[0];
+      state.league.activeLeagueId = nextLeague?.id || "";
+      state.league.code = nextLeague?.code || "";
+      state.league.joined = nextLeague?.code || "";
+      state.league.name = nextLeague?.name || "";
+      renderLeague();
+      await loadDashboardData();
+      saveState("League left");
     }
 
     function renderDashboard() {
@@ -2388,9 +2444,12 @@
         </option>
       `).join("");
       dashboardLeagues.innerHTML = leagues.map(league => `
-        <div class="league-item">
-          <span><strong>${escapeHtml(league.name)}</strong> ${escapeHtml(league.status)}</span>
-          <span>${escapeHtml(league.code)}</span>
+        <div class="league-item" data-league-id="${escapeHtml(league.id || "")}" data-league-code="${escapeHtml(league.code)}">
+          <span class="league-info"><strong>${escapeHtml(league.name)}</strong> ${escapeHtml(league.status)}</span>
+          <span class="league-tools">
+            <span>${escapeHtml(league.code)}</span>
+            ${league.id ? '<button class="mini-button" type="button" data-leave-league>Leave</button>' : ""}
+          </span>
         </div>
       `).join("");
       renderLeaderboard();
@@ -2496,7 +2555,7 @@
       state.league.code = result.league.code;
       state.league.joined = result.league.code;
       state.league.name = result.league.name;
-      addLeagueMembership(result.league.name, result.league.code, result.league.owner_id ? "Created" : "Joined");
+      addLeagueMembership(result.league.name, result.league.code, result.league.owner_id ? "Created" : "Joined", result.league.id);
     }
 
     async function loadDashboardData() {
@@ -2667,6 +2726,12 @@
       renderBonus();
       await loadDashboardData();
       saveState("League selected");
+    });
+    document.addEventListener("click", event => {
+      const leaveButton = event.target.closest("[data-leave-league]");
+      if (!leaveButton) return;
+      const leagueRow = leaveButton.closest("[data-league-id]");
+      leaveLeagueById(leagueRow?.dataset.leagueId);
     });
     document.getElementById("lockMyPicks").addEventListener("click", async () => {
       await saveLogin();
