@@ -307,20 +307,18 @@
 
     .coach-photo-card {
       position: absolute;
-      left: clamp(18px, 5vw, 44px);
-      right: clamp(18px, 5vw, 44px);
-      top: clamp(18px, 5vw, 42px);
-      height: min(52%, 250px);
+      inset: 0;
       overflow: hidden;
-      border-radius: var(--radius);
+      border-radius: 0;
       background: #050508;
-      box-shadow: 0 22px 52px rgba(0, 0, 0, .38);
+      box-shadow: none;
     }
 
     .coach-photo-card img {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: cover;
+      object-position: center 34%;
       background: #050508;
     }
 
@@ -2101,13 +2099,13 @@
 
     function setProgressVisibility() {
       const progress = document.querySelector(".progress");
-      const onLoginSlide = document.getElementById("returningHome").classList.contains("active") || activeSlide === 0;
-      progress.style.display = onLoginSlide ? "none" : "";
+      const hideProgress = state.dashboard?.userId || document.getElementById("returningHome").classList.contains("active") || activeSlide === 0;
+      progress.style.display = hideProgress ? "none" : "";
     }
 
     function goToSlide(index) {
       document.getElementById("returningHome").classList.remove("active");
-      const lowestAllowedSlide = state.dashboard?.userId ? 1 : 0;
+      const lowestAllowedSlide = state.dashboard?.userId ? 3 : 0;
       activeSlide = Math.max(lowestAllowedSlide, Math.min(6, index));
       document.querySelectorAll(".slide").forEach(slide => {
         slide.classList.toggle("active", Number(slide.dataset.slide) === activeSlide);
@@ -2795,6 +2793,14 @@
             return;
           }
           updateBonusSummary();
+          if (state.dashboard?.userId) {
+            await ensureOnlineLeague();
+            await savePredictionsOnlineSilently();
+            await loadDashboardData();
+            saveState("Bonus picks saved");
+            showReturningHome();
+            return;
+          }
           saveState("Bonus picks saved");
         }
         goToSlide(activeSlide + 1);
@@ -2802,7 +2808,13 @@
     });
 
     document.querySelectorAll("[data-back]").forEach(button => {
-      button.addEventListener("click", () => goToSlide(activeSlide - 1));
+      button.addEventListener("click", () => {
+        if (state.dashboard?.userId) {
+          showReturningHome();
+          return;
+        }
+        goToSlide(activeSlide - 1);
+      });
     });
 
     document.querySelectorAll("[data-go]").forEach(button => {
