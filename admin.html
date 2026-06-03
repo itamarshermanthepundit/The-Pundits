@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Pundits Admin</title>
+  <style>
+    body {
+      margin: 0;
+      color: #17101f;
+      background: #fff8f2;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 28px 18px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 5vw, 4rem);
+      line-height: 1;
+    }
+    p {
+      color: #6e6278;
+      line-height: 1.5;
+    }
+    .panel {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+      padding: 18px;
+      border: 1px solid #eadff0;
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 20px 48px rgba(52, 0, 94, .12);
+    }
+    label {
+      display: grid;
+      gap: 7px;
+      color: #6e6278;
+      font-weight: 800;
+    }
+    input,
+    select,
+    textarea,
+    button {
+      font: inherit;
+    }
+    input,
+    select,
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 46px;
+      padding: 10px 12px;
+      border: 1px solid #eadff0;
+      border-radius: 8px;
+    }
+    textarea {
+      min-height: 190px;
+      resize: vertical;
+    }
+    button {
+      min-height: 44px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 8px;
+      color: white;
+      background: #6500ef;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .status {
+      min-height: 24px;
+      color: #6e6278;
+      font-weight: 800;
+    }
+    @media (max-width: 640px) {
+      .row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>The Pundits Admin</h1>
+    <p>Use this page later to enter official results. Only users marked as admin in Supabase can save results.</p>
+
+    <section class="panel">
+      <h2>Sign in</h2>
+      <label>
+        Admin email
+        <input id="adminEmail" type="email" placeholder="you@example.com">
+      </label>
+      <button id="adminSignIn">Send login link</button>
+      <div class="status" id="authStatus"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Official result</h2>
+      <div class="row">
+        <label>
+          Result type
+          <select id="resultType">
+            <option value="group">Group table</option>
+            <option value="award">Award winner</option>
+            <option value="bracket">Knockout match</option>
+          </select>
+        </label>
+        <label>
+          Result key
+          <input id="resultKey" placeholder="A, champion, R32-01">
+        </label>
+      </div>
+      <label>
+        Result JSON
+        <textarea id="resultValue" placeholder='Example: ["Mexico","South Africa","South Korea","Czechia"]'></textarea>
+      </label>
+      <button id="saveResult">Save result</button>
+      <div class="status" id="saveStatus"></div>
+    </section>
+  </main>
+
+  <script src="supabase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="cloud.js"></script>
+  <script>
+    const config = window.PUNDITS_SUPABASE;
+    const client = config?.url && config?.anonKey && window.supabase
+      ? window.supabase.createClient(config.url, config.anonKey)
+      : null;
+
+    function setText(id, text) {
+      document.getElementById(id).textContent = text;
+    }
+
+    document.getElementById("adminSignIn").addEventListener("click", async () => {
+      if (!client) {
+        setText("authStatus", "Supabase is not configured yet.");
+        return;
+      }
+      const email = document.getElementById("adminEmail").value.trim();
+      const { error } = await client.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: window.location.href }
+      });
+      setText("authStatus", error ? error.message : "Check your email for the login link.");
+    });
+
+    document.getElementById("saveResult").addEventListener("click", async () => {
+      if (!client) {
+        setText("saveStatus", "Supabase is not configured yet.");
+        return;
+      }
+
+      const { data: userData } = await client.auth.getUser();
+      if (!userData.user) {
+        setText("saveStatus", "Sign in first.");
+        return;
+      }
+
+      let value;
+      try {
+        value = JSON.parse(document.getElementById("resultValue").value);
+      } catch {
+        setText("saveStatus", "Result JSON is not valid.");
+        return;
+      }
+
+      const { error } = await client.from("official_results").upsert({
+        result_type: document.getElementById("resultType").value,
+        result_key: document.getElementById("resultKey").value.trim(),
+        value,
+        updated_by: userData.user.id
+      }, { onConflict: "result_type,result_key" });
+
+      setText("saveStatus", error ? error.message : "Result saved.");
+    });
+  </script>
+</body>
+</html>
