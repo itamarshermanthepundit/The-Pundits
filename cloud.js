@@ -22,6 +22,12 @@
     return error ? { ok: false, message: error.message } : { ok: true, message: "Check your email for the login link." };
   }
 
+  async function signOut() {
+    if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const { error } = await client.auth.signOut();
+    return error ? { ok: false, message: error.message } : { ok: true };
+  }
+
   async function saveProfile({ email, squadName }) {
     const user = await getUser();
     if (!client || !user) return { ok: false, message: "Sign in before saving online." };
@@ -69,7 +75,8 @@
 
     if (leagueError) return { ok: false, message: "League code not found." };
     const { error } = await client.from("league_members").insert({ league_id: league.id, user_id: user.id });
-    return error ? { ok: false, message: error.message } : { ok: true, league };
+    if (error && !error.message.includes("duplicate key")) return { ok: false, message: error.message };
+    return { ok: true, league };
   }
 
   async function getLeagues() {
@@ -86,6 +93,16 @@
       ok: true,
       leagues: (data || []).map(row => row.leagues).filter(Boolean)
     };
+  }
+
+  async function ensureStarterLeague() {
+    const user = await getUser();
+    if (!client || !user) return { ok: false, message: "Sign in first." };
+
+    const existing = await getLeagues();
+    if (existing.ok && existing.leagues.length) return { ok: true, league: existing.leagues[0] };
+
+    return createLeague("My Pundits card");
   }
 
   async function getPredictions(leagueId) {
@@ -129,16 +146,59 @@
     return bonusError ? { ok: false, message: bonusError.message } : { ok: true };
   }
 
+  async function lockPredictions(leagueId) {
+    const user = await getUser();
+    if (!client || !user || !leagueId) return { ok: false, message: "Sign in and choose a league first." };
+    const lockedAt = new Date().toISOString();
+
+    const [{ error: groupError }, { error: awardError }] = await Promise.all([
+      client.from("group_predictions").update({ locked_at: lockedAt }).eq("user_id", user.id).eq("league_id", leagueId),
+      client.from("award_predictions").update({ locked_at: lockedAt }).eq("user_id", user.id).eq("league_id", leagueId)
+    ]);
+
+    if (groupError) return { ok: false, message: groupError.message };
+    if (awardError) return { ok: false, message: awardError.message };
+    return { ok: true, lockedAt };
+  }
+
+  async function getLeagueEntries(leagueId) {
+    const user = await getUser();
+    if (!client || !user || !leagueId) return { ok: false, message: "Choose a league first." };
+
+    const [{ data: members, error: membersError }, { data: groups, error: groupError }, { data: awards, error: awardError }] = await Promise.all([
+      client.from("league_members").select("user_id, profiles(email,squad_name)").eq("league_id", leagueId),
+      client.from("group_predictions").select("*").eq("league_id", leagueId),
+      client.from("award_predictions").select("*").eq("league_id", leagueId)
+    ]);
+
+    if (membersError) return { ok: false, message: membersError.message };
+    if (groupError) return { ok: false, message: groupError.message };
+    if (awardError) return { ok: false, message: awardError.message };
+
+    return { ok: true, members: members || [], groups: groups || [], awards: awards || [] };
+  }
+
+  async function getOfficialResults() {
+    if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const { data, error } = await client.from("official_results").select("*");
+    return error ? { ok: false, message: error.message } : { ok: true, results: data || [] };
+  }
+
   window.PunditsCloud = {
     isReady,
     signIn,
+    signOut,
     getUser,
     getProfile,
     saveProfile,
     createLeague,
     joinLeague,
     getLeagues,
+    ensureStarterLeague,
     getPredictions,
-    savePredictions
+    savePredictions,
+    lockPredictions,
+    getLeagueEntries,
+    getOfficialResults
   };
 })();

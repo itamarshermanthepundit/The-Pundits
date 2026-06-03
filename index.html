@@ -972,6 +972,18 @@
       color: var(--ink);
     }
 
+    .return-login {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: white;
+      box-shadow: var(--shadow);
+    }
+
     .returning-home {
       display: none;
       align-content: start;
@@ -989,6 +1001,10 @@
       gap: 16px;
     }
 
+    .dashboard-grid.dashboard-wide {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
     .dashboard-panel {
       padding: 18px;
       border: 1px solid var(--line);
@@ -999,6 +1015,12 @@
 
     .dashboard-panel h3 {
       margin: 0 0 12px;
+    }
+
+    .dashboard-panel p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      line-height: 1.5;
     }
 
     .pick-grid {
@@ -1027,6 +1049,76 @@
       margin-top: 8px;
       overflow-wrap: anywhere;
       font-size: 1.04rem;
+    }
+
+    .dashboard-table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: var(--radius);
+      font-size: .92rem;
+    }
+
+    .dashboard-table th,
+    .dashboard-table td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .dashboard-table th {
+      color: var(--muted);
+      background: var(--soft);
+      font-size: .78rem;
+      text-transform: uppercase;
+    }
+
+    .dashboard-table td:last-child,
+    .dashboard-table th:last-child {
+      text-align: right;
+    }
+
+    .pick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .lock-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 9px 11px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--grass-dark);
+      font-size: .86rem;
+      font-weight: 900;
+    }
+
+    .friend-picks {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .friend-card {
+      padding: 12px;
+      border-radius: var(--radius);
+      background: var(--soft);
+    }
+
+    .friend-card h4 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    .friend-card p {
+      margin: 4px 0;
+      font-size: .9rem;
     }
 
     .mini-bracket {
@@ -1233,7 +1325,8 @@
       }
 
       .dashboard-grid,
-      .pick-grid {
+      .pick-grid,
+      .return-login {
         grid-template-columns: 1fr;
       }
     }
@@ -1307,11 +1400,19 @@
           <div>
             <p class="kicker" style="color: var(--grass-dark)">My game</p>
             <h2 id="dashboardTitle">Your Pundits card</h2>
-            <p>Your saved picks, leagues, and locked knockout bracket live here.</p>
+            <p>Your saved picks, leagues, leaderboard, and locked knockout bracket live here.</p>
           </div>
           <div class="actions">
             <button class="button" id="showSetupFlow" type="button">Edit picks</button>
+            <button class="button" id="signOutOnline" type="button">Sign out</button>
           </div>
+        </div>
+        <div class="return-login" id="returnLoginPanel">
+          <label>
+            Already signed up?
+            <input id="returnEmailInput" type="email" placeholder="Enter your email" autocomplete="email">
+          </label>
+          <button class="button primary" id="returnSignInOnline" type="button">Send login link</button>
         </div>
         <div class="dashboard-grid">
           <section class="dashboard-panel">
@@ -1330,10 +1431,29 @@
                 <strong id="dashboardAssist">Not picked</strong>
               </article>
             </div>
+            <div class="lock-pill" id="lockStatus">Picks open until June 11</div>
+            <div class="pick-actions">
+              <button class="button primary" id="lockMyPicks" type="button">Lock my picks</button>
+              <button class="button" id="refreshDashboard" type="button">Refresh</button>
+            </div>
           </section>
           <section class="dashboard-panel">
             <h3>Your leagues</h3>
+            <label>
+              Active league
+              <select id="dashboardLeagueSelect"></select>
+            </label>
             <div class="league-list" id="dashboardLeagues"></div>
+          </section>
+          <section class="dashboard-panel">
+            <h3>Leaderboard</h3>
+            <p>Scores update when official results are entered.</p>
+            <div id="leaderboardTable"></div>
+          </section>
+          <section class="dashboard-panel">
+            <h3>Friends' picks</h3>
+            <p>Pick a league above, then open your friends' cards.</p>
+            <div class="friend-picks" id="friendPicks"></div>
           </section>
           <section class="dashboard-panel">
             <h3>Round of 32</h3>
@@ -1363,11 +1483,19 @@
             <div class="poster-overlay">
               <p class="kicker">Step 1</p>
               <h1>Enter your squad.</h1>
-              <p>Your email and squad name are saved with your entry. Join alerts are shown here now and can be connected to real email notifications later.</p>
+              <p>First time in? Name your squad and start the full prediction flow. Already signed up? Use only your email and jump back to your card.</p>
             </div>
           </div>
           <div class="panel">
-            <h3>Login info</h3>
+            <h3>Already signed up?</h3>
+            <div class="return-login" style="box-shadow: none; margin-bottom: 14px">
+              <label>
+                Email
+                <input id="firstReturnEmailInput" type="email" placeholder="you@example.com" autocomplete="email">
+              </label>
+              <button class="button primary" id="firstReturnSignInOnline" type="button">Send login link</button>
+            </div>
+            <h3>First-time setup</h3>
             <div class="form-grid">
               <label>
                 Email
@@ -1685,6 +1813,7 @@
   <script src="supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="cloud.js"></script>
+  <script src="scoring.js"></script>
   <script>
     const teams = {
       "Mexico": "🇲🇽",
@@ -1838,6 +1967,7 @@
     ].sort();
 
     const storeKey = "wc26-slide-prediction-game";
+    const pickLockDeadline = new Date("2026-06-11T22:00:00+03:00");
     const state = loadState();
     let activeSlide = state.activeSlide || 0;
 
@@ -1847,11 +1977,25 @@
         groupPicks: structuredClone(groups),
         bonus: { winner: "", scorer: "", assist: "" },
         league: { name: "", code: "", joined: "", memberships: [], activeLeagueId: "" },
+        dashboard: { entries: { members: [], groups: [], awards: [] }, officialResults: [], lockedAt: "", userId: "" },
         activeSlide: 0
       };
 
       try {
-        return { ...fallback, ...JSON.parse(localStorage.getItem(storeKey) || "{}") };
+        const saved = JSON.parse(localStorage.getItem(storeKey) || "{}");
+        const merged = { ...fallback, ...saved };
+        if (Array.isArray(merged.dashboard?.entries)) {
+          merged.dashboard.entries = { members: [], groups: [], awards: [] };
+        }
+        merged.dashboard = {
+          ...fallback.dashboard,
+          ...(saved.dashboard || {}),
+          entries: {
+            ...fallback.dashboard.entries,
+            ...(saved.dashboard?.entries && !Array.isArray(saved.dashboard.entries) ? saved.dashboard.entries : {})
+          }
+        };
+        return merged;
       } catch {
         return fallback;
       }
@@ -1898,6 +2042,30 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
+    function picksAreLocked() {
+      return Boolean(state.dashboard?.lockedAt) || Date.now() >= pickLockDeadline.getTime();
+    }
+
+    function lockText() {
+      if (state.dashboard?.lockedAt) return `Locked on ${new Date(state.dashboard.lockedAt).toLocaleDateString()}`;
+      if (Date.now() >= pickLockDeadline.getTime()) return "Locked by deadline";
+      return "Picks open until June 11";
+    }
+
+    function setPickControlsLocked() {
+      const locked = picksAreLocked();
+      document.querySelectorAll(
+        "#groupsGrid button, #resetGroups, #championToggle, [data-player-toggle], #championPicker button, .player-list button, #finishGame"
+      ).forEach(button => {
+        button.disabled = locked;
+      });
+      document.querySelectorAll(".team").forEach(row => {
+        row.draggable = !locked;
+      });
+      document.getElementById("lockStatus").textContent = lockText();
+      document.getElementById("lockMyPicks").disabled = locked;
+    }
+
     async function saveLogin() {
       state.login.email = document.getElementById("emailInput").value.trim();
       state.login.squad = document.getElementById("squadInput").value.trim();
@@ -1917,6 +2085,8 @@
     function renderLogin() {
       document.getElementById("emailInput").value = state.login.email || "";
       document.getElementById("squadInput").value = state.login.squad || "";
+      document.getElementById("returnEmailInput").value = state.login.email || "";
+      document.getElementById("firstReturnEmailInput").value = state.login.email || "";
       renderBrand();
     }
 
@@ -1957,12 +2127,17 @@
 
         grid.appendChild(card);
       });
+      setPickControlsLocked();
     }
 
     function setupGroupInteractions() {
       const grid = document.getElementById("groupsGrid");
 
       grid.addEventListener("click", event => {
+        if (picksAreLocked()) {
+          showToast("Picks are locked");
+          return;
+        }
         const button = event.target.closest("[data-move]");
         if (!button) return;
 
@@ -1980,6 +2155,11 @@
       });
 
       grid.addEventListener("dragstart", event => {
+        if (picksAreLocked()) {
+          event.preventDefault();
+          showToast("Picks are locked");
+          return;
+        }
         const row = event.target.closest(".team");
         if (!row) return;
         row.classList.add("dragging");
@@ -1998,6 +2178,11 @@
       });
 
       grid.addEventListener("drop", event => {
+        if (picksAreLocked()) {
+          event.preventDefault();
+          showToast("Picks are locked");
+          return;
+        }
         const targetRow = event.target.closest(".team");
         const list = event.target.closest(".team-list");
         if (!targetRow || !list) return;
@@ -2029,10 +2214,6 @@
         </button>
       `).join("");
 
-      document.getElementById("playerIdeas").innerHTML = playerIdeas.map(player => (
-        `<option value="${escapeHtml(player)}"></option>`
-      )).join("");
-
       winnerPick.value = state.bonus.winner || "";
       document.getElementById("scorerPick").value = state.bonus.scorer || "";
       document.getElementById("assistPick").value = state.bonus.assist || "";
@@ -2057,6 +2238,7 @@
         const current = type === "scorer" ? state.bonus.scorer : state.bonus.assist;
         button.classList.toggle("active", button.dataset.player === current);
       });
+      setPickControlsLocked();
     }
 
     function renderPlayerPickers() {
@@ -2179,29 +2361,125 @@
       document.getElementById("dashboardTitle").textContent = state.login.squad
         ? `${state.login.squad}'s card`
         : "Your Pundits card";
+      document.getElementById("returnLoginPanel").style.display = state.login.email ? "none" : "grid";
 
       document.getElementById("dashboardChampion").innerHTML = state.bonus.winner
         ? `<span class="flag" aria-hidden="true" style="display:inline-flex;margin-right:6px">${flagMarkup(state.bonus.winner)}</span>${escapeHtml(displayName(state.bonus.winner))}`
         : "Not picked";
       document.getElementById("dashboardScorer").textContent = state.bonus.scorer || "Not picked";
       document.getElementById("dashboardAssist").textContent = state.bonus.assist || "Not picked";
+      document.getElementById("lockStatus").textContent = lockText();
+      document.getElementById("lockMyPicks").disabled = picksAreLocked();
 
       const leagues = state.league.memberships || [];
       const dashboardLeagues = document.getElementById("dashboardLeagues");
+      const leagueSelect = document.getElementById("dashboardLeagueSelect");
       if (!leagues.length) {
         dashboardLeagues.innerHTML = '<div class="league-item"><span>Your leagues</span><strong>None yet</strong></div>';
+        leagueSelect.innerHTML = '<option>No leagues yet</option>';
+        renderLeaderboard();
+        renderFriendPicks();
         return;
       }
 
+      leagueSelect.innerHTML = leagues.map(league => `
+        <option value="${escapeHtml(league.id || "")}" ${league.id === state.league.activeLeagueId ? "selected" : ""}>
+          ${escapeHtml(league.name)} (${escapeHtml(league.code)})
+        </option>
+      `).join("");
       dashboardLeagues.innerHTML = leagues.map(league => `
         <div class="league-item">
           <span><strong>${escapeHtml(league.name)}</strong> ${escapeHtml(league.status)}</span>
           <span>${escapeHtml(league.code)}</span>
         </div>
       `).join("");
+      renderLeaderboard();
+      renderFriendPicks();
+    }
+
+    function memberName(member) {
+      return member?.profiles?.squad_name || member?.profiles?.email || "Pundit";
+    }
+
+    function awardForUser(userId) {
+      return (state.dashboard.entries.awards || []).find(row => row.user_id === userId) || null;
+    }
+
+    function groupsForUser(userId) {
+      return (state.dashboard.entries.groups || []).filter(row => row.user_id === userId);
+    }
+
+    function officialResultMap(type) {
+      return (state.dashboard.officialResults || [])
+        .filter(row => row.result_type === type)
+        .reduce((map, row) => {
+          map[row.result_key] = row.value;
+          return map;
+        }, {});
+    }
+
+    function scoreEntry(userId) {
+      const officialGroups = officialResultMap("group");
+      const awardRows = officialResultMap("award");
+      const officialAwards = awardRows.final || awardRows.awards || null;
+      const groupsScore = window.PunditsScoring?.scoreGroupPredictions(groupsForUser(userId), officialGroups) || 0;
+      const awardScore = window.PunditsScoring?.scoreAwards(awardForUser(userId), officialAwards) || 0;
+      return groupsScore + awardScore;
+    }
+
+    function renderLeaderboard() {
+      const members = state.dashboard.entries.members || [];
+      const target = document.getElementById("leaderboardTable");
+      if (!members.length) {
+        target.innerHTML = '<div class="league-item"><span>Leaderboard</span><strong>No entries yet</strong></div>';
+        return;
+      }
+
+      const rows = members
+        .map(member => ({ member, score: scoreEntry(member.user_id) }))
+        .sort((a, b) => b.score - a.score);
+
+      target.innerHTML = `
+        <table class="dashboard-table">
+          <thead><tr><th>#</th><th>Squad</th><th>Score</th></tr></thead>
+          <tbody>
+            ${rows.map((row, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${escapeHtml(memberName(row.member))}</td>
+                <td><strong>${row.score}</strong></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderFriendPicks() {
+      const members = state.dashboard.entries.members || [];
+      const target = document.getElementById("friendPicks");
+      if (!members.length) {
+        target.innerHTML = '<div class="league-item"><span>Friend picks</span><strong>No entries yet</strong></div>';
+        return;
+      }
+
+      target.innerHTML = members.map(member => {
+        const award = awardForUser(member.user_id) || {};
+        const groupsMade = groupsForUser(member.user_id).length;
+        return `
+          <article class="friend-card">
+            <h4>${escapeHtml(memberName(member))}</h4>
+            <p><strong>Champion:</strong> ${award.champion ? escapeHtml(displayName(award.champion)) : "Not picked"}</p>
+            <p><strong>Top scorer:</strong> ${award.top_scorer ? escapeHtml(award.top_scorer) : "Not picked"}</p>
+            <p><strong>Top assister:</strong> ${award.top_assister ? escapeHtml(award.top_assister) : "Not picked"}</p>
+            <p><strong>Groups submitted:</strong> ${groupsMade}/12</p>
+          </article>
+        `;
+      }).join("");
     }
 
     async function savePredictionsOnlineSilently() {
+      if (picksAreLocked()) return;
       if (!window.PunditsCloud?.isReady() || !state.league.activeLeagueId) return;
       await window.PunditsCloud.savePredictions({
         leagueId: state.league.activeLeagueId,
@@ -2210,11 +2488,49 @@
       });
     }
 
+    async function ensureOnlineLeague() {
+      if (!window.PunditsCloud?.isReady() || state.league.activeLeagueId) return;
+      const result = await window.PunditsCloud.ensureStarterLeague();
+      if (!result.ok || !result.league) return;
+      state.league.activeLeagueId = result.league.id;
+      state.league.code = result.league.code;
+      state.league.joined = result.league.code;
+      state.league.name = result.league.name;
+      addLeagueMembership(result.league.name, result.league.code, result.league.owner_id ? "Created" : "Joined");
+    }
+
+    async function loadDashboardData() {
+      if (!window.PunditsCloud?.isReady() || !state.league.activeLeagueId) {
+        state.dashboard.entries = { members: [], groups: [], awards: [] };
+        renderDashboard();
+        return;
+      }
+
+      const [entriesResult, officialResult] = await Promise.all([
+        window.PunditsCloud.getLeagueEntries(state.league.activeLeagueId),
+        window.PunditsCloud.getOfficialResults()
+      ]);
+
+      if (entriesResult.ok) {
+        state.dashboard.entries = {
+          members: entriesResult.members || [],
+          groups: entriesResult.groups || [],
+          awards: entriesResult.awards || []
+        };
+
+        const ownAward = (entriesResult.awards || []).find(row => row.user_id === state.dashboard.userId);
+        state.dashboard.lockedAt = ownAward?.locked_at || state.dashboard.lockedAt || "";
+      }
+      if (officialResult.ok) state.dashboard.officialResults = officialResult.results || [];
+      renderDashboard();
+    }
+
     async function hydrateOnlineState() {
       if (!window.PunditsCloud?.isReady()) return;
       const user = await window.PunditsCloud.getUser();
       if (!user) return;
       let isReturningUser = false;
+      state.dashboard.userId = user.id;
 
       const profileResult = await window.PunditsCloud.getProfile();
       if (profileResult.ok && profileResult.profile) {
@@ -2228,6 +2544,7 @@
           email: state.login.email,
           squadName: state.login.squad
         });
+        await ensureOnlineLeague();
       }
 
       const leaguesResult = await window.PunditsCloud.getLeagues();
@@ -2252,6 +2569,7 @@
       renderGroups();
       renderBonus();
       saveState();
+      await loadDashboardData();
       if (isReturningUser) showReturningHome();
     }
 
@@ -2267,6 +2585,7 @@
         state.bonus.winner = result.award.champion || "";
         state.bonus.scorer = result.award.top_scorer || "";
         state.bonus.assist = result.award.top_assister || "";
+        state.dashboard.lockedAt = result.award.locked_at || state.dashboard.lockedAt || "";
       }
     }
 
@@ -2283,6 +2602,10 @@
       button.addEventListener("click", async () => {
         if (activeSlide === 0) await saveLogin();
         if (activeSlide === 4) {
+          if (picksAreLocked()) {
+            showToast("Picks are locked");
+            return;
+          }
           updateBonusSummary();
           saveState("Bonus picks saved");
         }
@@ -2299,6 +2622,14 @@
     });
 
     document.getElementById("showSetupFlow").addEventListener("click", () => goToSlide(3));
+    document.getElementById("refreshDashboard").addEventListener("click", loadDashboardData);
+    document.getElementById("signOutOnline").addEventListener("click", async () => {
+      await window.PunditsCloud?.signOut();
+      state.dashboard.lockedAt = "";
+      state.dashboard.userId = "";
+      showToast("Signed out");
+      goToSlide(0);
+    });
 
     ["emailInput", "squadInput"].forEach(id => {
       document.getElementById(id).addEventListener("input", () => {
@@ -2308,15 +2639,61 @@
       });
     });
 
-    document.getElementById("signInOnline").addEventListener("click", async () => {
-      const email = document.getElementById("emailInput").value.trim();
+    async function sendLoginLinkFrom(inputId) {
+      const email = document.getElementById(inputId).value.trim();
       if (!email) {
         showToast("Add your email first");
         return;
       }
 
+      state.login.email = email;
+      saveState();
       const result = await window.PunditsCloud.signIn(email);
       showToast(result.message);
+    }
+
+    document.getElementById("signInOnline").addEventListener("click", () => sendLoginLinkFrom("emailInput"));
+    document.getElementById("returnSignInOnline").addEventListener("click", () => sendLoginLinkFrom("returnEmailInput"));
+    document.getElementById("firstReturnSignInOnline").addEventListener("click", () => sendLoginLinkFrom("firstReturnEmailInput"));
+    document.getElementById("dashboardLeagueSelect").addEventListener("change", async event => {
+      const league = (state.league.memberships || []).find(item => item.id === event.target.value);
+      if (!league) return;
+      state.league.activeLeagueId = league.id;
+      state.league.code = league.code;
+      state.league.joined = league.code;
+      state.league.name = league.name;
+      await hydratePredictions(league.id);
+      renderGroups();
+      renderBonus();
+      await loadDashboardData();
+      saveState("League selected");
+    });
+    document.getElementById("lockMyPicks").addEventListener("click", async () => {
+      await saveLogin();
+      updateBonusSummary();
+      await ensureOnlineLeague();
+      if (!state.league.activeLeagueId) {
+        showToast("Create or join a league first");
+        return;
+      }
+      const saved = await window.PunditsCloud.savePredictions({
+        leagueId: state.league.activeLeagueId,
+        groupPicks: state.groupPicks,
+        bonus: state.bonus
+      });
+      if (!saved.ok) {
+        showToast(saved.message);
+        return;
+      }
+      const locked = await window.PunditsCloud.lockPredictions(state.league.activeLeagueId);
+      if (!locked.ok) {
+        showToast(locked.message);
+        return;
+      }
+      state.dashboard.lockedAt = locked.lockedAt;
+      setPickControlsLocked();
+      await loadDashboardData();
+      saveState("Picks locked");
     });
 
     ["winnerPick", "scorerPick", "assistPick"].forEach(id => {
@@ -2335,6 +2712,10 @@
     });
 
     document.getElementById("championPicker").addEventListener("click", event => {
+      if (picksAreLocked()) {
+        showToast("Picks are locked");
+        return;
+      }
       const button = event.target.closest(".champion-option");
       if (!button) return;
       document.getElementById("winnerPick").value = button.dataset.team;
@@ -2359,6 +2740,10 @@
 
     document.querySelectorAll(".player-list").forEach(list => {
       list.addEventListener("click", event => {
+        if (picksAreLocked()) {
+          showToast("Picks are locked");
+          return;
+        }
         const button = event.target.closest(".player-option");
         if (!button) return;
         const inputId = button.dataset.type === "scorer" ? "scorerPick" : "assistPick";
@@ -2371,6 +2756,10 @@
     });
 
     document.getElementById("resetGroups").addEventListener("click", () => {
+      if (picksAreLocked()) {
+        showToast("Picks are locked");
+        return;
+      }
       state.groupPicks = structuredClone(groups);
       renderGroups();
       saveState("Groups reset");
@@ -2379,8 +2768,14 @@
     document.getElementById("createLeague").addEventListener("click", createLeagueCode);
     document.getElementById("joinLeague").addEventListener("click", joinLeague);
     document.getElementById("finishGame").addEventListener("click", async () => {
+      if (picksAreLocked()) {
+        showToast("Picks are locked");
+        showReturningHome();
+        return;
+      }
       await saveLogin();
       updateBonusSummary();
+      await ensureOnlineLeague();
       if (window.PunditsCloud?.isReady() && state.league.activeLeagueId) {
         const result = await window.PunditsCloud.savePredictions({
           leagueId: state.league.activeLeagueId,
@@ -2393,6 +2788,8 @@
         }
       }
       saveState("Predictions saved");
+      await loadDashboardData();
+      showReturningHome();
     });
 
     renderLogin();
