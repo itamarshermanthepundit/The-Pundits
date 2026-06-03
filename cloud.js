@@ -19,11 +19,33 @@
     return data.session || null;
   }
 
+  async function waitForSession(timeoutMs = 6000) {
+    if (!client) return null;
+    const existing = await getSession();
+    if (existing) return existing;
+
+    return new Promise(resolve => {
+      let settled = false;
+      let subscription;
+      const timer = window.setTimeout(() => finish(null), timeoutMs);
+      const finish = session => {
+        if (settled) return;
+        settled = true;
+        subscription?.unsubscribe();
+        window.clearTimeout(timer);
+        resolve(session || null);
+      };
+      const { data } = client.auth.onAuthStateChange((_event, session) => finish(session));
+      subscription = data.subscription;
+    });
+  }
+
   async function signIn(email) {
     if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const cleanRedirect = `${window.location.origin}${window.location.pathname}`;
     const { error } = await client.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.href }
+      options: { emailRedirectTo: cleanRedirect }
     });
     if (!error) return { ok: true, message: "Check your email for the login link." };
     const isRateLimit = error.message.toLowerCase().includes("rate limit");
@@ -263,6 +285,7 @@
     signOut,
     getUser,
     getSession,
+    waitForSession,
     getProfile,
     saveProfile,
     ensureProfile,

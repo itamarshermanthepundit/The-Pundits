@@ -2705,6 +2705,7 @@
 
     async function hydrateOnlineState() {
       if (!window.PunditsCloud?.isReady()) return;
+      await window.PunditsCloud.waitForSession?.();
       const user = await window.PunditsCloud.getUser();
       if (!user) return;
       let isReturningUser = true;
@@ -2757,6 +2758,16 @@
       saveState();
       await loadDashboardData();
       if (isReturningUser) showReturningHome();
+    }
+
+    async function bootApp() {
+      renderLogin();
+      renderGroups();
+      setupGroupInteractions();
+      renderBonus();
+      renderLeague();
+      await hydrateOnlineState();
+      if (!state.dashboard?.userId) goToSlide(activeSlide);
     }
 
     async function hydratePredictions(leagueId) {
@@ -3034,13 +3045,7 @@
       showReturningHome();
     });
 
-    renderLogin();
-    renderGroups();
-    setupGroupInteractions();
-    renderBonus();
-    renderLeague();
-    hydrateOnlineState();
-    goToSlide(activeSlide);
+    bootApp();
   </script>
 </body>
 </html>
