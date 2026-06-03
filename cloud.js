@@ -203,18 +203,39 @@
   async function getLeagueEntries(leagueId) {
     const user = await getUser();
     if (!client || !user || !leagueId) return { ok: false, message: "Choose a league first." };
+    const picksArePublic = Date.now() >= new Date("2026-06-11T22:00:00+03:00").getTime();
+
+    let groupQuery = client.from("group_predictions").select("*").eq("league_id", leagueId);
+    let awardQuery = client.from("award_predictions").select("*").eq("league_id", leagueId);
+    if (!picksArePublic) {
+      groupQuery = groupQuery.eq("user_id", user.id);
+      awardQuery = awardQuery.eq("user_id", user.id);
+    }
 
     const [{ data: members, error: membersError }, { data: groups, error: groupError }, { data: awards, error: awardError }] = await Promise.all([
       client.from("league_members").select("user_id, profiles(email,squad_name)").eq("league_id", leagueId),
-      client.from("group_predictions").select("*").eq("league_id", leagueId),
-      client.from("award_predictions").select("*").eq("league_id", leagueId)
+      groupQuery,
+      awardQuery
     ]);
 
     if (membersError) return { ok: false, message: membersError.message };
     if (groupError) return { ok: false, message: groupError.message };
     if (awardError) return { ok: false, message: awardError.message };
 
-    return { ok: true, members: members || [], groups: groups || [], awards: awards || [] };
+    const memberRows = members || [];
+    const missingProfiles = memberRows.filter(member => !member.profiles).map(member => member.user_id);
+    if (missingProfiles.length) {
+      const { data: profiles } = await client
+        .from("profiles")
+        .select("id,email,squad_name")
+        .in("id", missingProfiles);
+      const byId = new Map((profiles || []).map(profile => [profile.id, profile]));
+      memberRows.forEach(member => {
+        if (!member.profiles) member.profiles = byId.get(member.user_id) || null;
+      });
+    }
+
+    return { ok: true, members: memberRows, groups: groups || [], awards: awards || [], picksArePublic };
   }
 
   async function getOfficialResults() {
