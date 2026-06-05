@@ -3550,10 +3550,6 @@
 
     document.querySelectorAll("[data-back]").forEach(button => {
       button.addEventListener("click", () => {
-        if (state.dashboard?.userId && activeSlide !== 9) {
-          goToSlide(9);
-          return;
-        }
         goToSlide(activeSlide - 1);
       });
     });
