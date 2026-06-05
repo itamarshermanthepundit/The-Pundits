@@ -20,9 +20,9 @@ language sql
 immutable
 as $$
   select case
-    when regexp_replace(upper(trim(coalesce(raw_code, ''))), '[^0-9]', '', 'g') ~ '^[0-9]{4}$'
-      then 'WC26-' || regexp_replace(upper(trim(coalesce(raw_code, ''))), '[^0-9]', '', 'g')
-    else regexp_replace(upper(trim(coalesce(raw_code, ''))), '[^A-Z0-9-]', '', 'g')
+    when substring(regexp_replace(upper(trim(coalesce(raw_code, ''))), '\s+', '', 'g') from '([0-9]{4})$') is not null
+      then 'WC26-' || substring(regexp_replace(upper(trim(coalesce(raw_code, ''))), '\s+', '', 'g') from '([0-9]{4})$')
+    else upper(trim(coalesce(raw_code, '')))
   end;
 $$;
 
@@ -39,6 +39,7 @@ begin
   into found_league
   from public.leagues
   where upper(code) = public.normalize_league_code(join_code)
+     or upper(name) = upper(trim(join_code))
   limit 1;
 
   if found_league.id is null then
@@ -244,6 +245,7 @@ begin
   into found_league
   from public.leagues
   where upper(code) = public.normalize_league_code(p_join_code)
+     or upper(name) = upper(trim(p_join_code))
   limit 1;
 
   if found_league.id is null then

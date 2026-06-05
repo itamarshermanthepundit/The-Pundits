@@ -57,9 +57,10 @@
   }
 
   function normalizeLeagueCode(value) {
-    const clean = String(value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/[–—]/g, "-");
+    const raw = String(value || "").trim();
+    const clean = raw.toUpperCase().replace(/\s+/g, "").replace(/[–—]/g, "-");
     const digits = clean.match(/\d{4}$/)?.[0];
-    return digits ? `WC26-${digits}` : clean;
+    return digits ? `WC26-${digits}` : raw;
   }
 
   async function signIn(email) {
