@@ -26,6 +26,14 @@ as $$
   end;
 $$;
 
+create or replace function public.normalize_join_name(raw_name text)
+returns text
+language sql
+immutable
+as $$
+  select regexp_replace(upper(trim(coalesce(raw_name, ''))), '\s+', '', 'g');
+$$;
+
 create or replace function public.join_league_by_code(join_code text)
 returns public.leagues
 language plpgsql
@@ -40,6 +48,7 @@ begin
   from public.leagues
   where upper(code) = public.normalize_league_code(join_code)
      or upper(name) = upper(trim(join_code))
+     or public.normalize_join_name(name) = public.normalize_join_name(join_code)
   limit 1;
 
   if found_league.id is null then
@@ -246,6 +255,7 @@ begin
   from public.leagues
   where upper(code) = public.normalize_league_code(p_join_code)
      or upper(name) = upper(trim(p_join_code))
+     or public.normalize_join_name(name) = public.normalize_join_name(p_join_code)
   limit 1;
 
   if found_league.id is null then

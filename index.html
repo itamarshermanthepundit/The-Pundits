@@ -2962,6 +2962,10 @@
         return;
       }
       document.getElementById("joinCodeInput").value = code;
+      if (window.PunditsCloud && !window.PunditsCloud.isReady?.() && window.PunditsCloud.setupError?.()) {
+        showToast(window.PunditsCloud.setupError());
+        return;
+      }
 
       if (window.PunditsCloud?.isReady()) {
         const user = await requireOnlineUser();

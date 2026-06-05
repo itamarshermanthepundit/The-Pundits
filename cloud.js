@@ -1,16 +1,30 @@
 (() => {
   const config = window.PUNDITS_SUPABASE;
   const hasSupabase = Boolean(config?.url && config?.anonKey && window.supabase);
-  const client = hasSupabase ? window.supabase.createClient(config.url, config.anonKey, {
-    auth: {
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      persistSession: true
+  let client = null;
+  let startupError = "";
+  if (hasSupabase) {
+    try {
+      client = window.supabase.createClient(config.url, config.anonKey, {
+        auth: {
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          persistSession: true
+        }
+      });
+    } catch (error) {
+      startupError = error.message || String(error);
+      client = null;
     }
-  }) : null;
+  }
 
   function isReady() {
     return Boolean(client);
+  }
+
+  function setupError() {
+    if (client) return "";
+    return startupError || "Supabase helper did not start.";
   }
 
   async function getUser() {
@@ -407,6 +421,7 @@
 
   window.PunditsCloud = {
     isReady,
+    setupError,
     hasAuthRedirect,
     signIn,
     signOut,
