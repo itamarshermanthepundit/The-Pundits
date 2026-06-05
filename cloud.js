@@ -120,6 +120,22 @@
     return error ? { ok: false, message: error.message } : { ok: true, profile: data };
   }
 
+  async function ensureCodeProfile({ accessCode, email, squadName }) {
+    if (!client || !accessCode) return { ok: false, message: "Create your pundit code first." };
+    const { data, error } = await client.rpc("upsert_code_profile", {
+      p_access_code: accessCode,
+      p_email: email || "",
+      p_squad_name: squadName || "New Pundit"
+    });
+    return error ? { ok: false, message: error.message } : { ok: true, profile: data };
+  }
+
+  async function getProfileByCode(accessCode) {
+    if (!client || !accessCode) return { ok: false, message: "Enter your pundit code first." };
+    const { data, error } = await client.rpc("get_profile_by_code", { p_access_code: accessCode });
+    return error ? { ok: false, message: error.message } : { ok: true, profile: data };
+  }
+
   async function createLeague(name) {
     const user = await getUser();
     if (!client || !user) return { ok: false, message: "Sign in before creating a league." };
@@ -165,6 +181,34 @@
     );
     if (error && !error.message.includes("duplicate key")) return { ok: false, message: error.message };
     return { ok: true, league };
+  }
+
+  async function createLeagueWithCode({ accessCode, email, squadName, name }) {
+    if (!client || !accessCode) return { ok: false, message: "Create your pundit code first." };
+    const { data, error } = await client.rpc("create_league_with_code", {
+      p_access_code: accessCode,
+      p_email: email || "",
+      p_squad_name: squadName || "New Pundit",
+      p_name: name || "My league"
+    });
+    return error ? { ok: false, message: error.message } : { ok: true, league: data };
+  }
+
+  async function joinLeagueWithCode({ accessCode, email, squadName, code }) {
+    if (!client || !accessCode) return { ok: false, message: "Create your pundit code first." };
+    const { data, error } = await client.rpc("join_league_with_code", {
+      p_access_code: accessCode,
+      p_email: email || "",
+      p_squad_name: squadName || "New Pundit",
+      p_join_code: code
+    });
+    return error ? { ok: false, message: error.message } : { ok: true, league: data };
+  }
+
+  async function getLeaguesForCode(accessCode) {
+    if (!client || !accessCode) return { ok: false, message: "Create your pundit code first." };
+    const { data, error } = await client.rpc("get_leagues_for_code", { p_access_code: accessCode });
+    return error ? { ok: false, message: error.message } : { ok: true, leagues: data || [] };
   }
 
   async function leaveLeague(leagueId) {
@@ -227,6 +271,19 @@
     return { ok: true, groups: groups || [], award };
   }
 
+  async function getPredictionsWithCode({ accessCode, leagueId }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "No league selected." };
+    const { data, error } = await client.rpc("get_predictions_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId
+    });
+    return error ? { ok: false, message: error.message } : {
+      ok: true,
+      groups: data?.groups || [],
+      award: data?.award || null
+    };
+  }
+
   async function savePredictions({ leagueId, groupPicks, bonus }) {
     const user = await getUser();
     if (!client || !user || !leagueId) return { ok: false, message: "Sign in and choose a league first." };
@@ -252,6 +309,17 @@
     }, { onConflict: "user_id,league_id" });
 
     return bonusError ? { ok: false, message: bonusError.message } : { ok: true };
+  }
+
+  async function savePredictionsWithCode({ accessCode, leagueId, groupPicks, bonus }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "Choose a league first." };
+    const { error } = await client.rpc("save_predictions_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId,
+      p_group_picks: groupPicks || {},
+      p_bonus: bonus || {}
+    });
+    return error ? { ok: false, message: error.message } : { ok: true };
   }
 
   async function lockPredictions(leagueId) {
@@ -307,6 +375,21 @@
     return { ok: true, members: memberRows, groups: groups || [], awards: awards || [], picksArePublic };
   }
 
+  async function getLeagueEntriesWithCode({ accessCode, leagueId }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "Choose a league first." };
+    const { data, error } = await client.rpc("get_league_entries_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId
+    });
+    return error ? { ok: false, message: error.message } : {
+      ok: true,
+      members: data?.members || [],
+      groups: data?.groups || [],
+      awards: data?.awards || [],
+      picksArePublic: Boolean(data?.picksArePublic)
+    };
+  }
+
   async function getOfficialResults() {
     if (!client) return { ok: false, message: "Supabase is not configured yet." };
     const { data, error } = await client.from("official_results").select("*");
@@ -324,15 +407,23 @@
     getProfile,
     saveProfile,
     ensureProfile,
+    ensureCodeProfile,
+    getProfileByCode,
     createLeague,
     joinLeague,
+    createLeagueWithCode,
+    joinLeagueWithCode,
     leaveLeague,
     getLeagues,
+    getLeaguesForCode,
     ensureStarterLeague,
     getPredictions,
+    getPredictionsWithCode,
     savePredictions,
+    savePredictionsWithCode,
     lockPredictions,
     getLeagueEntries,
+    getLeagueEntriesWithCode,
     getOfficialResults
   };
 })();

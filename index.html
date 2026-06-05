@@ -792,7 +792,7 @@
     .login-landing-controls {
       position: absolute;
       left: 50%;
-      bottom: clamp(18px, 4vw, 44px);
+      bottom: clamp(120px, 15vh, 178px);
       width: min(720px, calc(100% - 28px));
       transform: translateX(-50%);
       display: grid;
@@ -1480,6 +1480,10 @@
       .login-landing {
         min-height: calc(100vh - 96px);
         border-radius: 12px;
+      }
+
+      .login-landing-controls {
+        bottom: clamp(92px, 13vh, 138px);
       }
 
       .login-choice-row {
@@ -2398,6 +2402,21 @@
       return Boolean(state.loginComplete && state.login?.code);
     }
 
+    function codeProfilePayload() {
+      return {
+        accessCode: state.login.code,
+        email: state.login.email,
+        squadName: state.login.squad
+      };
+    }
+
+    async function syncCodeProfileOnline() {
+      if (!window.PunditsCloud?.isReady() || !state.login?.code) return null;
+      const result = await window.PunditsCloud.ensureCodeProfile(codeProfilePayload());
+      if (result?.ok && result.profile?.id) state.dashboard.userId = result.profile.id;
+      return result;
+    }
+
     function accessCodes() {
       try {
         return JSON.parse(localStorage.getItem(codeStoreKey) || "{}");
@@ -2625,6 +2644,7 @@
           saveState("Code created");
           return;
         }
+        await syncCodeProfileOnline();
         saveState("Code created");
         return;
       }
@@ -2642,9 +2662,21 @@
       goToSlide(1);
     }
 
-    function enterWithAccessCode() {
+    async function enterWithAccessCode() {
       const code = document.getElementById("returnCodeInput").value.trim().toUpperCase();
-      const profile = accessCodes()[code];
+      let profile = accessCodes()[code];
+      if (!profile && window.PunditsCloud?.isReady()) {
+        const result = await window.PunditsCloud.getProfileByCode(code);
+        if (result.ok && result.profile) {
+          profile = {
+            email: result.profile.email,
+            squad: result.profile.squad_name
+          };
+          const codes = accessCodes();
+          codes[code] = profile;
+          saveAccessCodes(codes);
+        }
+      }
       if (!profile) {
         showToast("Code not found");
         return;
@@ -2659,6 +2691,8 @@
       renderGroups();
       renderBonus();
       renderLeague();
+      await syncCodeProfileOnline();
+      await hydrateCodeLeagues();
       saveState("Welcome back");
       goToSlide(3);
     }
@@ -2886,6 +2920,23 @@
           return;
         }
         if (!hasCodeLogin()) return;
+        const result = await window.PunditsCloud.createLeagueWithCode({
+          ...codeProfilePayload(),
+          name: name || "My league"
+        });
+        if (result.ok) {
+          state.league.name = result.league.name;
+          state.league.code = result.league.code;
+          state.league.activeLeagueId = result.league.id;
+          addLeagueMembership(result.league.name, result.league.code, "Created", result.league.id);
+          renderLeague();
+          await savePredictionsOnlineSilently();
+          await loadDashboardData();
+          saveState("League created online");
+          return;
+        }
+        showToast(result.message);
+        return;
       }
 
       const seed = Math.floor(1000 + Math.random() * 9000);
@@ -2925,6 +2976,25 @@
           return;
         }
         if (!hasCodeLogin()) return;
+        const result = await window.PunditsCloud.joinLeagueWithCode({
+          ...codeProfilePayload(),
+          code
+        });
+        if (result.ok) {
+          state.league.joined = result.league.code;
+          state.league.activeLeagueId = result.league.id;
+          addLeagueMembership(result.league.name, result.league.code, "Joined", result.league.id);
+          renderLeague();
+          await hydratePredictions(result.league.id);
+          renderGroups();
+          renderBonus();
+          await savePredictionsOnlineSilently();
+          await loadDashboardData();
+          saveState("League joined online");
+          return;
+        }
+        showToast(result.message);
+        return;
       }
 
       state.league.joined = code;
@@ -3199,6 +3269,16 @@
     async function savePredictionsOnlineSilently() {
       if (picksAreLocked()) return;
       if (!window.PunditsCloud?.isReady() || !state.league.activeLeagueId) return;
+      if (hasCodeLogin() && !state.dashboard.userId) await syncCodeProfileOnline();
+      if (hasCodeLogin()) {
+        await window.PunditsCloud.savePredictionsWithCode({
+          accessCode: state.login.code,
+          leagueId: state.league.activeLeagueId,
+          groupPicks: state.groupPicks,
+          bonus: state.bonus
+        });
+        return;
+      }
       await window.PunditsCloud.savePredictions({
         leagueId: state.league.activeLeagueId,
         groupPicks: state.groupPicks,
@@ -3217,6 +3297,29 @@
       addLeagueMembership(result.league.name, result.league.code, result.league.owner_id ? "Created" : "Joined", result.league.id);
     }
 
+    async function hydrateCodeLeagues() {
+      if (!window.PunditsCloud?.isReady() || !hasCodeLogin()) return;
+      await syncCodeProfileOnline();
+      const result = await window.PunditsCloud.getLeaguesForCode(state.login.code);
+      if (!result.ok || !result.leagues.length) return;
+      state.league.memberships = result.leagues.map(league => ({
+        name: league.name,
+        code: league.code,
+        status: league.owner_id === state.dashboard.userId ? "Created" : "Joined",
+        id: league.id
+      }));
+      const active = result.leagues.find(league => league.id === state.league.activeLeagueId) || result.leagues[0];
+      state.league.activeLeagueId = active.id;
+      state.league.code = active.code;
+      state.league.joined = active.code;
+      state.league.name = active.name;
+      await hydratePredictions(active.id);
+      renderLeague();
+      renderGroups();
+      renderBonus();
+      await loadDashboardData();
+    }
+
     async function loadDashboardData() {
       if (!window.PunditsCloud?.isReady() || !state.league.activeLeagueId) {
         state.dashboard.entries = { members: [], groups: [], awards: [] };
@@ -3225,8 +3328,11 @@
         return;
       }
 
+      if (hasCodeLogin() && !state.dashboard.userId) await syncCodeProfileOnline();
       const [entriesResult, officialResult] = await Promise.all([
-        window.PunditsCloud.getLeagueEntries(state.league.activeLeagueId),
+        hasCodeLogin()
+          ? window.PunditsCloud.getLeagueEntriesWithCode({ accessCode: state.login.code, leagueId: state.league.activeLeagueId })
+          : window.PunditsCloud.getLeagueEntries(state.league.activeLeagueId),
         window.PunditsCloud.getOfficialResults()
       ]);
 
@@ -3334,6 +3440,7 @@
         state.loginComplete = true;
         state.allowIntroAfterLogin = false;
         state.skipIntroAfterCode = true;
+        await hydrateCodeLeagues();
         goToSlide(3);
         showToast("Welcome back");
         return;
@@ -3346,7 +3453,9 @@
     }
 
     async function hydratePredictions(leagueId) {
-      const result = await window.PunditsCloud.getPredictions(leagueId);
+      const result = hasCodeLogin()
+        ? await window.PunditsCloud.getPredictionsWithCode({ accessCode: state.login.code, leagueId })
+        : await window.PunditsCloud.getPredictions(leagueId);
       if (!result.ok) return;
 
       (result.groups || []).forEach(row => {
