@@ -2093,6 +2093,7 @@
         bonus: { winner: "", scorer: "", assist: "" },
         league: { name: "", code: "", joined: "", memberships: [], activeLeagueId: "" },
         dashboard: { entries: { members: [], groups: [], awards: [] }, officialResults: [], lockedAt: "", userId: "", picksArePublic: false },
+        loginComplete: false,
         activeSlide: 0
       };
 
@@ -2110,6 +2111,11 @@
             ...(saved.dashboard?.entries && !Array.isArray(saved.dashboard.entries) ? saved.dashboard.entries : {})
           }
         };
+        merged.loginComplete = Boolean(
+          saved.loginComplete ||
+          merged.dashboard.userId ||
+          Number(merged.activeSlide || 0) > 0
+        );
         return merged;
       } catch {
         return fallback;
@@ -2138,13 +2144,13 @@
 
     function setProgressVisibility() {
       const progress = document.querySelector(".progress");
-      const hideProgress = state.dashboard?.userId || document.getElementById("returningHome").classList.contains("active") || activeSlide === 0;
+      const hideProgress = state.dashboard?.userId || state.loginComplete || document.getElementById("returningHome").classList.contains("active") || activeSlide === 0;
       progress.style.display = hideProgress ? "none" : "";
     }
 
     function goToSlide(index) {
       document.getElementById("returningHome").classList.remove("active");
-      const lowestAllowedSlide = state.dashboard?.userId ? 3 : 0;
+      const lowestAllowedSlide = state.dashboard?.userId || state.loginComplete ? 3 : 0;
       activeSlide = Math.max(lowestAllowedSlide, Math.min(7, index));
       document.querySelectorAll(".slide").forEach(slide => {
         slide.classList.toggle("active", Number(slide.dataset.slide) === activeSlide);
@@ -2204,6 +2210,7 @@
       state.login.squad = document.getElementById("squadInput").value.trim();
 
       if (state.login.email && state.login.squad) {
+        state.loginComplete = true;
         if (window.PunditsCloud?.isReady()) {
           const result = await window.PunditsCloud.saveProfile({
             email: state.login.email,
@@ -2498,16 +2505,28 @@
           <span class="league-info"><strong>${escapeHtml(league.name)}</strong> ${escapeHtml(league.status)}</span>
           <span class="league-tools">
             <span>${escapeHtml(league.code)}</span>
-            ${league.id ? '<button class="mini-button" type="button" data-leave-league>Leave</button>' : ""}
+            <button class="mini-button" type="button" data-leave-league>Leave</button>
           </span>
         </div>
       `).join("");
     }
 
-    async function leaveLeagueById(leagueId) {
-      if (!leagueId) return;
-      if (!window.PunditsCloud?.isReady()) {
-        state.league.memberships = (state.league.memberships || []).filter(league => league.id !== leagueId);
+    async function leaveLeagueById(leagueId, leagueCode) {
+      if (!leagueId && !leagueCode) return;
+      const removeLeague = () => {
+        state.league.memberships = (state.league.memberships || []).filter(league => {
+          if (leagueId) return league.id !== leagueId;
+          return league.code !== leagueCode;
+        });
+        const nextLeague = state.league.memberships[0];
+        state.league.activeLeagueId = nextLeague?.id || "";
+        state.league.code = nextLeague?.code || "";
+        state.league.joined = nextLeague?.code || "";
+        state.league.name = nextLeague?.name || "";
+      };
+
+      if (!window.PunditsCloud?.isReady() || !leagueId) {
+        removeLeague();
         renderLeague();
         renderDashboard();
         saveState("League left");
@@ -2520,12 +2539,7 @@
         return;
       }
 
-      state.league.memberships = (state.league.memberships || []).filter(league => league.id !== leagueId);
-      const nextLeague = state.league.memberships[0];
-      state.league.activeLeagueId = nextLeague?.id || "";
-      state.league.code = nextLeague?.code || "";
-      state.league.joined = nextLeague?.code || "";
-      state.league.name = nextLeague?.name || "";
+      removeLeague();
       renderLeague();
       await loadDashboardData();
       saveState("League left");
@@ -2570,7 +2584,7 @@
           <span class="league-info"><strong>${escapeHtml(league.name)}</strong> ${escapeHtml(league.status)}</span>
           <span class="league-tools">
             <span>${escapeHtml(league.code)}</span>
-            ${league.id ? '<button class="mini-button" type="button" data-leave-league>Leave</button>' : ""}
+            <button class="mini-button" type="button" data-leave-league>Leave</button>
           </span>
         </div>
       `).join("");
@@ -2777,6 +2791,7 @@
       if (!user) return;
       let isReturningUser = true;
       state.dashboard.userId = user.id;
+      state.loginComplete = true;
 
       const profileResult = await window.PunditsCloud.getProfile();
       if (profileResult.ok && profileResult.profile) {
@@ -2921,6 +2936,7 @@
       await window.PunditsCloud?.signOut();
       state.dashboard.lockedAt = "";
       state.dashboard.userId = "";
+      state.loginComplete = false;
       showToast("Signed out");
       goToSlide(0);
     });
@@ -2948,6 +2964,7 @@
       button.textContent = "Checking...";
       const user = await window.PunditsCloud.getUser();
       if (user) {
+        state.loginComplete = true;
         await hydrateOnlineState();
         await loadDashboardData();
         goToSlide(7);
@@ -2998,8 +3015,8 @@
     document.addEventListener("click", event => {
       const leaveButton = event.target.closest("[data-leave-league]");
       if (!leaveButton) return;
-      const leagueRow = leaveButton.closest("[data-league-id]");
-      leaveLeagueById(leagueRow?.dataset.leagueId);
+      const leagueRow = leaveButton.closest("[data-league-id], [data-league-code]");
+      leaveLeagueById(leagueRow?.dataset.leagueId, leagueRow?.dataset.leagueCode);
     });
     document.getElementById("lockMyPicks").addEventListener("click", async () => {
       await saveLogin();
