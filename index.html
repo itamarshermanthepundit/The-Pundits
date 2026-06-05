@@ -714,6 +714,55 @@
       gap: 16px;
     }
 
+    .league-choice-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .league-choice-card {
+      min-height: 310px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: white;
+      color: var(--ink);
+      padding: 0;
+      overflow: hidden;
+      text-align: left;
+      cursor: pointer;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      box-shadow: 0 12px 30px rgba(10, 22, 38, .08);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .league-choice-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 38px rgba(10, 22, 38, .13);
+    }
+
+    .league-choice-media {
+      min-height: 205px;
+      background:
+        linear-gradient(135deg, rgba(238, 0, 126, .16), rgba(0, 146, 70, .18)),
+        repeating-linear-gradient(45deg, #f4f6f7 0 12px, #ffffff 12px 24px);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
+    .league-choice-copy {
+      display: grid;
+      gap: 6px;
+      padding: 16px;
+    }
+
+    .league-choice-copy strong {
+      font-size: 1.15rem;
+    }
+
     .champion-picker {
       display: none;
       margin-top: 8px;
@@ -1377,6 +1426,7 @@
 
       .dashboard-grid,
       .pick-grid,
+      .league-choice-grid,
       .return-login {
         grid-template-columns: 1fr;
       }
@@ -1442,6 +1492,8 @@
           <button class="dot" data-go="5">6</button>
           <button class="dot" data-go="6">7</button>
           <button class="dot" data-go="7">8</button>
+          <button class="dot" data-go="8">9</button>
+          <button class="dot" data-go="9">10</button>
         </div>
       </div>
     </header>
@@ -1778,54 +1830,111 @@
             <img class="slide-photo" src="assets/iceland.jpg" alt="Football supporters celebrating in the stands">
             <div class="poster-overlay">
             <p class="kicker">Step 6</p>
-            <h2>League code.</h2>
-            <p>Join your friends, make your picks, and beat them with pure football knowledge.</p>
+            <h2>Choose your league path.</h2>
+            <p>Create your own table or jump into a friend's league.</p>
             </div>
           </div>
           <div class="panel">
             <h3>Friends league</h3>
             <p class="phone-note">Create a private league, send the code to your friends, and see who really knows ball when the tournament starts.</p>
-            <div class="league-layout">
-              <div class="form-grid">
-                <label>
-                  League name
-                  <input id="leagueNameInput" placeholder="Friday Night Football">
-                </label>
-                <button class="button primary" id="createLeague">Create league code</button>
-                <div class="league-code">
-                  <span>Your code</span>
-                  <strong id="leagueCode">Not created</strong>
-                </div>
-              </div>
-              <div class="form-grid">
-                <label>
-                  Join with code
-                  <input id="joinCodeInput" placeholder="WC26-1234">
-                </label>
-                <button class="button" id="joinLeague">Join league</button>
-                <div class="summary-row">
-                  <span>Current league</span>
-                  <span id="currentLeague">None</span>
-                </div>
-              </div>
+            <div class="league-choice-grid">
+              <button class="league-choice-card" type="button" data-go="6">
+                <span class="league-choice-media">PICTURE SLOT</span>
+                <span class="league-choice-copy">
+                  <strong>Create a league</strong>
+                  <span>Start the room, share the code, and make your friends chase your football IQ.</span>
+                </span>
+              </button>
+              <button class="league-choice-card" type="button" data-go="7">
+                <span class="league-choice-media">PICTURE SLOT</span>
+                <span class="league-choice-copy">
+                  <strong>Join a league</strong>
+                  <span>Use your friend's code and get into the table before the picks lock.</span>
+                </span>
+              </button>
             </div>
             <div class="actions">
               <button class="button" data-back>Back</button>
-              <button class="button primary" data-next>Continue</button>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="slide wide-slide" data-slide="6">
+      <section class="slide" data-slide="6">
+        <div class="slide-shell">
+          <div class="hero-panel photo-panel">
+            <img class="slide-photo" src="assets/iceland.jpg" alt="Football supporters celebrating in the stands">
+            <div class="poster-overlay">
+              <p class="kicker">Step 7</p>
+              <h2>Create a league.</h2>
+              <p>Make the code, send it out, and let the table talk begin.</p>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Create league</h3>
+            <div class="form-grid">
+              <label>
+                League name
+                <input id="leagueNameInput" placeholder="Friday Night Football">
+              </label>
+              <button class="button primary" id="createLeague">Create league code</button>
+              <div class="league-code">
+                <span>Your code</span>
+                <strong id="leagueCode">Not created</strong>
+              </div>
+              <div class="summary-row">
+                <span>Current league</span>
+                <span id="currentLeague">None</span>
+              </div>
+            </div>
+            <div class="actions">
+              <button class="button" data-go="5">Back</button>
+              <button class="button primary" data-go="8">Continue</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-slide="7">
+        <div class="slide-shell">
+          <div class="hero-panel photo-panel">
+            <img class="slide-photo" src="assets/iceland.jpg" alt="Football supporters celebrating in the stands">
+            <div class="poster-overlay">
+              <p class="kicker">Step 7</p>
+              <h2>Join a league.</h2>
+              <p>Enter the code and bring your ball knowledge into the room.</p>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Join league</h3>
+            <div class="form-grid">
+              <label>
+                Join with code
+                <input id="joinCodeInput" placeholder="WC26-1234">
+              </label>
+              <button class="button primary" id="joinLeague">Join league</button>
+              <div class="summary-row">
+                <span>Current league</span>
+                <span id="currentLeagueJoin">None</span>
+              </div>
+            </div>
+            <div class="actions">
+              <button class="button" data-go="5">Back</button>
+              <button class="button primary" data-go="8">Continue</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide wide-slide" data-slide="8">
         <div class="wide-head">
           <div>
-            <p class="kicker" style="color: var(--grass-dark)">Step 7</p>
+            <p class="kicker" style="color: var(--grass-dark)">Step 8</p>
             <h2>Round of 32 bracket</h2>
             <p>The real knockout bracket is locked until the group stage is finished. It opens on July 1, 2026.</p>
           </div>
           <div class="actions">
-            <button class="button" data-back>Back</button>
+            <button class="button" data-go="5">Back</button>
             <button class="button primary" id="goToMyLeagues" type="button">My leagues</button>
           </div>
         </div>
@@ -1882,10 +1991,10 @@
         </div>
       </section>
 
-      <section class="slide wide-slide" data-slide="7">
+      <section class="slide wide-slide" data-slide="9">
         <div class="wide-head">
           <div>
-            <p class="kicker" style="color: var(--grass-dark)">Step 8</p>
+            <p class="kicker" style="color: var(--grass-dark)">Step 9</p>
             <h2>My leagues</h2>
             <p>All the leagues you are part of live here. Pick one to see the members, leaderboard, and friend picks when they unlock.</p>
           </div>
@@ -2151,7 +2260,7 @@
     function goToSlide(index) {
       document.getElementById("returningHome").classList.remove("active");
       const lowestAllowedSlide = state.dashboard?.userId || state.loginComplete ? 3 : 0;
-      activeSlide = Math.max(lowestAllowedSlide, Math.min(7, index));
+      activeSlide = Math.max(lowestAllowedSlide, Math.min(9, index));
       document.querySelectorAll(".slide").forEach(slide => {
         slide.classList.toggle("active", Number(slide.dataset.slide) === activeSlide);
       });
@@ -2404,6 +2513,7 @@
       document.getElementById("leagueCode").textContent = state.league.code || "Not created";
       document.getElementById("joinCodeInput").value = state.league.joined || "";
       document.getElementById("currentLeague").textContent = state.league.joined || state.league.code || "None";
+      document.getElementById("currentLeagueJoin").textContent = state.league.joined || state.league.code || "None";
       renderLeagueList();
     }
 
@@ -2418,9 +2528,24 @@
       return displayNames[team] || team;
     }
 
+    async function requireOnlineUser() {
+      if (!window.PunditsCloud?.isReady()) return null;
+      await window.PunditsCloud.waitForSession?.();
+      const user = await window.PunditsCloud.getUser();
+      if (!user) {
+        showToast("Open your email login link first");
+        return null;
+      }
+      state.dashboard.userId = user.id;
+      state.loginComplete = true;
+      return user;
+    }
+
     async function createLeagueCode() {
       const name = document.getElementById("leagueNameInput").value.trim();
       if (window.PunditsCloud?.isReady()) {
+        const user = await requireOnlineUser();
+        if (!user) return;
         const result = await window.PunditsCloud.createLeague(name || "My league");
         if (result.ok) {
           state.league.name = result.league.name;
@@ -2451,7 +2576,8 @@
       }
 
       if (window.PunditsCloud?.isReady()) {
-        await saveLogin();
+        const user = await requireOnlineUser();
+        if (!user) return;
         const result = await window.PunditsCloud.joinLeague(code);
         if (result.ok) {
           state.league.joined = result.league.code;
@@ -2839,7 +2965,7 @@
       renderBonus();
       saveState();
       await loadDashboardData();
-      if (isReturningUser) goToSlide(7);
+      if (isReturningUser) goToSlide(9);
     }
 
     async function bootApp() {
@@ -2891,7 +3017,7 @@
             await savePredictionsOnlineSilently();
             await loadDashboardData();
             saveState("Bonus picks saved");
-            goToSlide(7);
+            goToSlide(9);
             return;
           }
           saveState("Bonus picks saved");
@@ -2903,7 +3029,7 @@
     document.querySelectorAll("[data-back]").forEach(button => {
       button.addEventListener("click", () => {
         if (state.dashboard?.userId) {
-          goToSlide(7);
+          goToSlide(9);
           return;
         }
         goToSlide(activeSlide - 1);
@@ -2967,7 +3093,7 @@
         state.loginComplete = true;
         await hydrateOnlineState();
         await loadDashboardData();
-        goToSlide(7);
+        goToSlide(9);
         button.disabled = false;
         button.textContent = originalText;
         return;
@@ -3119,12 +3245,12 @@
     document.getElementById("joinLeague").addEventListener("click", joinLeague);
     document.getElementById("goToMyLeagues").addEventListener("click", async () => {
       await loadDashboardData();
-      goToSlide(7);
+      goToSlide(9);
     });
     document.getElementById("finishGame").addEventListener("click", async () => {
       if (picksAreLocked()) {
         showToast("Picks are locked");
-        goToSlide(7);
+        goToSlide(9);
         return;
       }
       await saveLogin();
@@ -3143,7 +3269,7 @@
       }
       saveState("Predictions saved");
       await loadDashboardData();
-      goToSlide(7);
+      goToSlide(9);
     });
 
     bootApp();
