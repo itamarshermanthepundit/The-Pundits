@@ -2225,6 +2225,8 @@
     ].sort();
 
     const storeKey = "wc26-slide-prediction-game";
+    const loginLinkStoreKey = "pundits-login-links-sent";
+    const loginLinkReuseMs = 23 * 60 * 60 * 1000;
     const pickLockDeadline = new Date("2026-06-11T22:00:00+03:00");
     const state = loadState();
     let activeSlide = 0;
@@ -2275,7 +2277,39 @@
       toast.textContent = message;
       toast.classList.add("show");
       window.clearTimeout(showToast.timer);
-      showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 2200);
+      showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 4200);
+    }
+
+    function loginLinksSent() {
+      try {
+        return JSON.parse(localStorage.getItem(loginLinkStoreKey) || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function rememberLoginLink(email) {
+      const links = loginLinksSent();
+      links[email.toLowerCase()] = Date.now();
+      localStorage.setItem(loginLinkStoreKey, JSON.stringify(links));
+    }
+
+    function hasReusableLoginLink(email) {
+      const sentAt = loginLinksSent()[email.toLowerCase()];
+      return sentAt && Date.now() - sentAt < loginLinkReuseMs;
+    }
+
+    async function requestLoginLink(email) {
+      if (hasReusableLoginLink(email)) {
+        return {
+          ok: false,
+          reused: true,
+          message: "Use the login link already in your email."
+        };
+      }
+      const result = await window.PunditsCloud.signIn(email);
+      if (result.ok) rememberLoginLink(email);
+      return result;
     }
 
     function renderBrand() {
@@ -2393,7 +2427,7 @@
           goToSlide(1);
           return;
         }
-        const result = await window.PunditsCloud.signIn(state.login.email);
+        const result = await requestLoginLink(state.login.email);
         showToast(result.ok ? "Check your email to finish login" : result.message);
         saveState();
         return;
@@ -2420,7 +2454,7 @@
           goToSlide(9);
           return;
         }
-        const result = await window.PunditsCloud.signIn(email);
+        const result = await requestLoginLink(email);
         showToast(result.ok ? "Check your email to finish login" : result.message);
         saveState();
         return;
@@ -3073,6 +3107,17 @@
       setupGroupInteractions();
       renderBonus();
       renderLeague();
+      if (window.PunditsCloud?.isReady()) {
+        await window.PunditsCloud.waitForSession?.(1200);
+        const session = await window.PunditsCloud.getSession?.();
+        if (session) {
+          await hydrateOnlineState();
+          if (state.dashboard?.userId) {
+            if (window.PunditsCloud?.hasAuthRedirect?.()) showToast("Signed in");
+            return;
+          }
+        }
+      }
       if (window.PunditsCloud?.hasAuthRedirect?.()) {
         await hydrateOnlineState();
         if (state.dashboard?.userId) {
@@ -3205,7 +3250,7 @@
       }
 
       button.textContent = "Sending...";
-      const result = await window.PunditsCloud.signIn(email);
+      const result = await requestLoginLink(email);
       showToast(result.message);
       button.textContent = result.ok ? "Email sent" : originalText;
       window.setTimeout(() => {
