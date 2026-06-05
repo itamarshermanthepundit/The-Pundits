@@ -2386,11 +2386,21 @@
         showToast("Add email and squad name");
         return;
       }
-      state.loginComplete = true;
       if (window.PunditsCloud?.isReady()) {
         const user = await window.PunditsCloud.getUser();
-        if (user) await hydrateOnlineState();
+        if (user) {
+          state.loginComplete = true;
+          await hydrateOnlineState();
+          saveState("Welcome in");
+          goToSlide(1);
+          return;
+        }
+        const result = await window.PunditsCloud.signIn(state.login.email);
+        showToast(result.ok ? "Check your email to finish login" : result.message);
+        saveState();
+        return;
       }
+      state.loginComplete = true;
       saveState("Welcome in");
       goToSlide(1);
     }
@@ -2403,19 +2413,21 @@
       }
       state.login.email = email;
       state.login.squad ||= email.split("@")[0] || "Pundit";
-      state.loginComplete = true;
       if (window.PunditsCloud?.isReady()) {
         const user = await window.PunditsCloud.getUser();
         if (user) {
+          state.loginComplete = true;
           await hydrateOnlineState();
           await loadDashboardData();
           goToSlide(9);
           return;
         }
-        window.PunditsCloud.signIn(email).then(result => {
-          if (result.ok) showToast("Login email sent");
-        });
+        const result = await window.PunditsCloud.signIn(email);
+        showToast(result.ok ? "Check your email to finish login" : result.message);
+        saveState();
+        return;
       }
+      state.loginComplete = true;
       saveState("Welcome back");
       goToSlide(1);
     }
@@ -2613,7 +2625,10 @@
       if (!window.PunditsCloud?.isReady()) return null;
       await window.PunditsCloud.waitForSession?.();
       const user = await window.PunditsCloud.getUser();
-      if (!user) return null;
+      if (!user) {
+        showToast("Finish the email login first so leagues sync");
+        return null;
+      }
       state.dashboard.userId = user.id;
       state.loginComplete = true;
       return user;
@@ -2637,6 +2652,7 @@
           }
           showToast(result.message);
         }
+        return;
       }
 
       const seed = Math.floor(1000 + Math.random() * 9000);
@@ -2675,6 +2691,7 @@
           showToast(result.message);
           return;
         }
+        return;
       }
 
       state.league.joined = code;
@@ -2685,8 +2702,13 @@
 
     function addLeagueMembership(name, code, status, id = "") {
       state.league.memberships ||= [];
-      const exists = state.league.memberships.some(league => league.code === code);
-      if (!exists) {
+      const existing = state.league.memberships.find(league => league.code === code || (id && league.id === id));
+      if (existing) {
+        existing.name = name || existing.name;
+        existing.code = code || existing.code;
+        existing.status = status || existing.status;
+        existing.id = id || existing.id;
+      } else {
         state.league.memberships.unshift({ name, code, status, id });
       }
     }

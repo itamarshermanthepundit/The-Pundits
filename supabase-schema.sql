@@ -87,12 +87,8 @@ create policy "users can insert own profile"
 create policy "users can update own profile"
   on public.profiles for update to authenticated using (auth.uid() = id);
 
-create policy "leagues visible to members"
-  on public.leagues for select to authenticated
-  using (owner_id = auth.uid() or exists (
-    select 1 from public.league_members m
-    where m.league_id = leagues.id and m.user_id = auth.uid()
-  ));
+create policy "authenticated users can find leagues"
+  on public.leagues for select to authenticated using (true);
 
 create policy "users can create leagues"
   on public.leagues for insert to authenticated with check (owner_id = auth.uid());
