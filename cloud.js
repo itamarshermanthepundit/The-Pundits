@@ -56,6 +56,12 @@
     );
   }
 
+  function normalizeLeagueCode(value) {
+    const clean = String(value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/[–—]/g, "-");
+    const digits = clean.match(/\d{4}$/)?.[0];
+    return digits ? `WC26-${digits}` : clean;
+  }
+
   async function signIn(email) {
     if (!client) return { ok: false, message: "Supabase is not configured yet." };
     const cleanRedirect = `${window.location.origin}${window.location.pathname}`;
@@ -160,6 +166,7 @@
   }
 
   async function joinLeague(code) {
+    code = normalizeLeagueCode(code);
     const user = await getUser();
     if (!client || !user) return { ok: false, message: "Sign in before joining a league." };
     const profile = await ensureProfile();
@@ -195,6 +202,7 @@
   }
 
   async function joinLeagueWithCode({ accessCode, email, squadName, code }) {
+    code = normalizeLeagueCode(code);
     if (!client || !accessCode) return { ok: false, message: "Create your pundit code first." };
     const { data, error } = await client.rpc("join_league_with_code", {
       p_access_code: accessCode,

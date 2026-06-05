@@ -14,6 +14,18 @@ where not exists (
   where m.league_id = l.id and m.user_id = l.owner_id
 );
 
+create or replace function public.normalize_league_code(raw_code text)
+returns text
+language sql
+immutable
+as $$
+  select case
+    when regexp_replace(upper(trim(coalesce(raw_code, ''))), '[^0-9]', '', 'g') ~ '^[0-9]{4}$'
+      then 'WC26-' || regexp_replace(upper(trim(coalesce(raw_code, ''))), '[^0-9]', '', 'g')
+    else regexp_replace(upper(trim(coalesce(raw_code, ''))), '[^A-Z0-9-]', '', 'g')
+  end;
+$$;
+
 create or replace function public.join_league_by_code(join_code text)
 returns public.leagues
 language plpgsql
@@ -26,7 +38,7 @@ begin
   select *
   into found_league
   from public.leagues
-  where upper(code) = upper(join_code)
+  where upper(code) = public.normalize_league_code(join_code)
   limit 1;
 
   if found_league.id is null then
@@ -231,7 +243,7 @@ begin
   select *
   into found_league
   from public.leagues
-  where upper(code) = upper(trim(p_join_code))
+  where upper(code) = public.normalize_league_code(p_join_code)
   limit 1;
 
   if found_league.id is null then

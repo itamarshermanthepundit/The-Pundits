@@ -2402,6 +2402,13 @@
       return Boolean(state.loginComplete && state.login?.code);
     }
 
+    function normalizeLeagueCode(value) {
+      const clean = String(value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/[–—]/g, "-");
+      const digits = clean.match(/\d{4}$/)?.[0];
+      if (!digits) return clean;
+      return `WC26-${digits}`;
+    }
+
     function codeProfilePayload() {
       return {
         accessCode: state.login.code,
@@ -2948,11 +2955,12 @@
     }
 
     async function joinLeague() {
-      const code = document.getElementById("joinCodeInput").value.trim().toUpperCase();
+      const code = normalizeLeagueCode(document.getElementById("joinCodeInput").value);
       if (!code) {
         showToast("Add a league code first");
         return;
       }
+      document.getElementById("joinCodeInput").value = code;
 
       if (window.PunditsCloud?.isReady()) {
         const user = await requireOnlineUser();
