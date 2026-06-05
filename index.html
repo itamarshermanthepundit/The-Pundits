@@ -883,10 +883,7 @@
     .champion-picker {
       display: none;
       margin-top: 8px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
-      max-height: 330px;
-      overflow: auto;
       padding: 8px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -944,6 +941,7 @@
       min-height: 42px;
     }
 
+    .champion-list,
     .player-list {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
@@ -1937,7 +1935,10 @@
                   <span id="championButtonText">Choose champion</span>
                   <span>+</span>
                 </button>
-                <div class="champion-picker" id="championPicker" aria-label="Choose champion"></div>
+                <div class="champion-picker" id="championPicker" aria-label="Choose champion">
+                  <input class="player-search" id="championSearch" placeholder="Search countries">
+                  <div class="champion-list" id="championList"></div>
+                </div>
               </div>
               <div class="field-label">
                 Top scorer
@@ -2616,7 +2617,7 @@
     function setPickControlsLocked() {
       const locked = picksAreLocked();
       document.querySelectorAll(
-        "#groupsGrid button, #resetGroups, #championToggle, [data-player-toggle], #championPicker button, .player-list button, #finishGame"
+        "#groupsGrid button, #resetGroups, #championToggle, #championSearch, [data-player-toggle], #championPicker button, .player-list button, #finishGame"
       ).forEach(button => {
         button.disabled = locked;
       });
@@ -2845,18 +2846,10 @@
 
     function renderBonus() {
       const winnerPick = document.getElementById("winnerPick");
-      const championPicker = document.getElementById("championPicker");
-      const allTeams = Object.keys(teams).sort();
-      championPicker.innerHTML = allTeams.map(team => `
-        <button class="champion-option" type="button" data-team="${escapeHtml(team)}">
-          <span class="flag" aria-hidden="true">${flagMarkup(team)}</span>
-          <span>${escapeHtml(displayName(team))}</span>
-        </button>
-      `).join("");
-
       winnerPick.value = state.bonus.winner || "";
       document.getElementById("scorerPick").value = state.bonus.scorer || "";
       document.getElementById("assistPick").value = state.bonus.assist || "";
+      renderChampionList(document.getElementById("championSearch").value || "");
       renderPlayerPickers();
       updateBonusSummary();
     }
@@ -2884,6 +2877,19 @@
     function renderPlayerPickers() {
       renderPlayerList("scorer", "");
       renderPlayerList("assist", "");
+    }
+
+    function renderChampionList(query) {
+      const list = document.getElementById("championList");
+      const normalized = query.trim().toLowerCase();
+      const allTeams = Object.keys(teams).sort();
+      const matchingTeams = allTeams.filter(team => displayName(team).toLowerCase().includes(normalized));
+      list.innerHTML = matchingTeams.map(team => `
+        <button class="champion-option" type="button" data-team="${escapeHtml(team)}">
+          <span class="flag" aria-hidden="true">${flagMarkup(team)}</span>
+          <span>${escapeHtml(displayName(team))}</span>
+        </button>
+      `).join("");
     }
 
     function renderPlayerList(type, query) {
@@ -3544,7 +3550,7 @@
 
     document.querySelectorAll("[data-back]").forEach(button => {
       button.addEventListener("click", () => {
-        if (state.dashboard?.userId) {
+        if (state.dashboard?.userId && activeSlide !== 9) {
           goToSlide(9);
           return;
         }
@@ -3708,6 +3714,12 @@
 
     document.getElementById("championToggle").addEventListener("click", () => {
       document.getElementById("championPicker").classList.toggle("open");
+      document.getElementById("championSearch").focus();
+    });
+
+    document.getElementById("championSearch").addEventListener("input", event => {
+      renderChampionList(event.target.value);
+      updateBonusSummary();
     });
 
     document.getElementById("championPicker").addEventListener("click", event => {
