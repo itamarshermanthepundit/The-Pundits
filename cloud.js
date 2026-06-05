@@ -40,6 +40,16 @@
     });
   }
 
+  function hasAuthRedirect() {
+    const url = new URL(window.location.href);
+    return (
+      url.searchParams.has("code") ||
+      url.searchParams.has("token_hash") ||
+      window.location.hash.includes("access_token") ||
+      window.location.hash.includes("refresh_token")
+    );
+  }
+
   async function signIn(email) {
     if (!client) return { ok: false, message: "Supabase is not configured yet." };
     const cleanRedirect = `${window.location.origin}${window.location.pathname}`;
@@ -119,7 +129,11 @@
     }).select().single();
 
     if (error) return { ok: false, message: error.message };
-    await client.from("league_members").insert({ league_id: data.id, user_id: user.id });
+    const { error: memberError } = await client.from("league_members").upsert(
+      { league_id: data.id, user_id: user.id },
+      { onConflict: "league_id,user_id" }
+    );
+    if (memberError) return { ok: false, message: memberError.message };
     return { ok: true, league: data };
   }
 
@@ -129,6 +143,9 @@
     const profile = await ensureProfile();
     if (!profile.ok) return profile;
 
+    const rpcResult = await client.rpc("join_league_by_code", { join_code: code });
+    if (!rpcResult.error && rpcResult.data) return { ok: true, league: rpcResult.data };
+
     const { data: league, error: leagueError } = await client
       .from("leagues")
       .select("*")
@@ -136,7 +153,10 @@
       .single();
 
     if (leagueError) return { ok: false, message: "League code not found." };
-    const { error } = await client.from("league_members").insert({ league_id: league.id, user_id: user.id });
+    const { error } = await client.from("league_members").upsert(
+      { league_id: league.id, user_id: user.id },
+      { onConflict: "league_id,user_id" }
+    );
     if (error && !error.message.includes("duplicate key")) return { ok: false, message: error.message };
     return { ok: true, league };
   }
@@ -164,9 +184,16 @@
       .eq("user_id", user.id);
 
     if (error) return { ok: false, message: error.message };
+    const { data: owned } = await client
+      .from("leagues")
+      .select("id,name,code,owner_id")
+      .eq("owner_id", user.id);
+    const byId = new Map();
+    (data || []).map(row => row.leagues).filter(Boolean).forEach(league => byId.set(league.id, league));
+    (owned || []).forEach(league => byId.set(league.id, league));
     return {
       ok: true,
-      leagues: (data || []).map(row => row.leagues).filter(Boolean)
+      leagues: [...byId.values()]
     };
   }
 
@@ -282,6 +309,7 @@
 
   window.PunditsCloud = {
     isReady,
+    hasAuthRedirect,
     signIn,
     signOut,
     getUser,

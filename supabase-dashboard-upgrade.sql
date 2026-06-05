@@ -6,6 +6,43 @@ drop policy if exists "authenticated users can find leagues" on public.leagues;
 create policy "authenticated users can find leagues"
   on public.leagues for select to authenticated using (true);
 
+insert into public.league_members (league_id, user_id)
+select l.id, l.owner_id
+from public.leagues l
+where not exists (
+  select 1 from public.league_members m
+  where m.league_id = l.id and m.user_id = l.owner_id
+);
+
+create or replace function public.join_league_by_code(join_code text)
+returns public.leagues
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  found_league public.leagues;
+begin
+  select *
+  into found_league
+  from public.leagues
+  where upper(code) = upper(join_code)
+  limit 1;
+
+  if found_league.id is null then
+    raise exception 'League code not found.';
+  end if;
+
+  insert into public.league_members (league_id, user_id)
+  values (found_league.id, auth.uid())
+  on conflict (league_id, user_id) do nothing;
+
+  return found_league;
+end;
+$$;
+
+grant execute on function public.join_league_by_code(text) to authenticated;
+
 drop policy if exists "users can leave leagues" on public.league_members;
 create policy "users can leave leagues"
   on public.league_members for delete to authenticated using (user_id = auth.uid());

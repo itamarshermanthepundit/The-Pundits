@@ -3073,6 +3073,13 @@
       setupGroupInteractions();
       renderBonus();
       renderLeague();
+      if (window.PunditsCloud?.hasAuthRedirect?.()) {
+        await hydrateOnlineState();
+        if (state.dashboard?.userId) {
+          showToast("Signed in");
+          return;
+        }
+      }
       state.loginComplete = false;
       state.dashboard.userId = "";
       goToSlide(0);

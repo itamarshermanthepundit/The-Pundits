@@ -119,3 +119,32 @@ create policy "admins manage results"
   on public.official_results for all to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin));
+
+create or replace function public.join_league_by_code(join_code text)
+returns public.leagues
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  found_league public.leagues;
+begin
+  select *
+  into found_league
+  from public.leagues
+  where upper(code) = upper(join_code)
+  limit 1;
+
+  if found_league.id is null then
+    raise exception 'League code not found.';
+  end if;
+
+  insert into public.league_members (league_id, user_id)
+  values (found_league.id, auth.uid())
+  on conflict (league_id, user_id) do nothing;
+
+  return found_league;
+end;
+$$;
+
+grant execute on function public.join_league_by_code(text) to authenticated;
