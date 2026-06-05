@@ -772,6 +772,106 @@
       gap: 14px;
     }
 
+    .login-landing {
+      position: relative;
+      min-height: min(900px, calc(100vh - 120px));
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #f7f8fb;
+      box-shadow: 0 24px 70px rgba(8, 18, 34, .18);
+    }
+
+    .login-landing-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .login-landing-controls {
+      position: absolute;
+      left: 50%;
+      bottom: clamp(18px, 4vw, 44px);
+      width: min(720px, calc(100% - 28px));
+      transform: translateX(-50%);
+      display: grid;
+      gap: 14px;
+      z-index: 2;
+    }
+
+    .login-choice-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .login-choice {
+      min-height: 92px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: transparent;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      box-shadow: none;
+      cursor: pointer;
+    }
+
+    .login-choice[data-login-choice="returning"] {
+      border-color: transparent;
+    }
+
+    .login-choice:focus-visible {
+      outline: 3px solid rgba(22, 138, 67, .55);
+      outline-offset: 4px;
+    }
+
+    .login-code-panel {
+      display: none;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .94);
+      box-shadow: 0 16px 34px rgba(6, 25, 56, .16);
+    }
+
+    .login-code-panel.active {
+      display: grid;
+    }
+
+    .login-code-panel h3 {
+      margin: 0;
+      color: #071536;
+    }
+
+    .login-code-panel label {
+      color: #13203a;
+    }
+
+    .user-code-card {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 2px solid #168a43;
+      border-radius: 10px;
+      background: #f4fff7;
+      color: #071536;
+      font-weight: 800;
+    }
+
+    .user-code-card.active {
+      display: flex;
+    }
+
+    .user-code-card strong {
+      font-size: clamp(1.6rem, 7vw, 2.4rem);
+      letter-spacing: .18em;
+    }
+
     .champion-picker {
       display: none;
       margin-top: 8px;
@@ -1377,6 +1477,25 @@
         padding: 20px;
       }
 
+      .login-landing {
+        min-height: calc(100vh - 96px);
+        border-radius: 12px;
+      }
+
+      .login-choice-row {
+        gap: 10px;
+      }
+
+      .login-choice {
+        min-height: 76px;
+        font-size: .74rem;
+        letter-spacing: .04em;
+      }
+
+      .login-code-panel {
+        padding: 12px;
+      }
+
       h1 {
         font-size: clamp(2.1rem, 14vw, 3.3rem);
       }
@@ -1615,19 +1734,15 @@
       </section>
 
       <section class="slide active" data-slide="0">
-        <div class="slide-shell">
-          <div class="hero-panel poster-panel">
-            <img class="poster-image" src="assets/FIFA-world-cup-2026-752x440.webp" alt="FIFA World Cup 2026 poster">
-            <div class="poster-overlay">
-              <p class="kicker">The Pundits</p>
-              <h1>THE PUNDITS</h1>
-              <p>New pundits add these details once. Returning pundits are remembered and jump straight into predictions.</p>
+        <div class="login-landing">
+          <img class="login-landing-image" src="assets/the-pundits-login.png" alt="The Pundits login poster">
+          <div class="login-landing-controls">
+            <div class="login-choice-row" id="loginChoiceRow">
+              <button class="login-choice" type="button" data-login-choice="first">First time user</button>
+              <button class="login-choice" type="button" data-login-choice="returning">Been here before</button>
             </div>
-          </div>
-          <div class="panel">
-            <div class="login-panel active" id="firstTimePanel">
-              <h3>First time user</h3>
-              <p class="phone-note">This is the only place you enter your email and club name. After the login link works, this screen disappears from your flow.</p>
+            <div class="login-code-panel" id="firstTimePanel">
+              <h3>Create your pundit code</h3>
               <div class="form-grid">
                 <label>
                   Email
@@ -1638,8 +1753,27 @@
                   <input id="squadInput" placeholder="The Last-Minute Winners" autocomplete="organization">
                 </label>
               </div>
+              <div class="user-code-card" id="createdCodeCard">
+                <span>Your permanent code</span>
+                <strong id="createdCodeText"></strong>
+              </div>
               <div class="actions">
-                <button class="button primary" id="firstTimeEnter" type="button">Send login link</button>
+                <button class="button" type="button" data-login-choice="choice">Back</button>
+                <button class="button primary" id="firstTimeEnter" type="button">Create code</button>
+                <button class="button primary" id="continueWithCode" type="button" style="display: none;">Continue</button>
+              </div>
+            </div>
+            <div class="login-code-panel" id="returningCodePanel">
+              <h3>Enter your code</h3>
+              <div class="form-grid">
+                <label>
+                  Pundit code
+                  <input id="returnCodeInput" maxlength="4" placeholder="ABCD" autocomplete="one-time-code">
+                </label>
+              </div>
+              <div class="actions">
+                <button class="button" type="button" data-login-choice="choice">Back</button>
+                <button class="button primary" id="returnCodeEnter" type="button">Enter app</button>
               </div>
             </div>
           </div>
@@ -2193,6 +2327,7 @@
     ].sort();
 
     const storeKey = "wc26-slide-prediction-game";
+    const codeStoreKey = "pundits-access-codes";
     const loginLinkStoreKey = "pundits-login-links-sent";
     const loginLinkReuseMs = 23 * 60 * 60 * 1000;
     const pickLockDeadline = new Date("2026-06-11T22:00:00+03:00");
@@ -2201,7 +2336,7 @@
 
     function loadState() {
       const fallback = {
-        login: { email: "", squad: "" },
+        login: { email: "", squad: "", code: "" },
         groupPicks: structuredClone(groups),
         bonus: { winner: "", scorer: "", assist: "" },
         league: { name: "", code: "", joined: "", memberships: [], activeLeagueId: "" },
@@ -2209,6 +2344,7 @@
         loginComplete: false,
         pendingFirstTimeLogin: false,
         allowIntroAfterLogin: false,
+        skipIntroAfterCode: false,
         activeSlide: 0
       };
 
@@ -2229,6 +2365,7 @@
         merged.loginComplete = false;
         merged.dashboard.userId = "";
         merged.allowIntroAfterLogin = false;
+        merged.skipIntroAfterCode = Boolean(saved.skipIntroAfterCode);
         merged.pendingFirstTimeLogin = Boolean(saved.pendingFirstTimeLogin);
         merged.activeSlide = 0;
         return merged;
@@ -2240,6 +2377,7 @@
     function saveState(message) {
       state.activeSlide = activeSlide;
       localStorage.setItem(storeKey, JSON.stringify(state));
+      saveCurrentCodeProfile();
       if (message) showToast(message);
       renderBrand();
     }
@@ -2253,7 +2391,86 @@
     }
 
     function hasRememberedLocalUser() {
-      return Boolean(state.login?.email && state.login?.squad);
+      return Boolean(state.login?.email && state.login?.squad && state.login?.code);
+    }
+
+    function hasCodeLogin() {
+      return Boolean(state.loginComplete && state.login?.code);
+    }
+
+    function accessCodes() {
+      try {
+        return JSON.parse(localStorage.getItem(codeStoreKey) || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function saveAccessCodes(codes) {
+      localStorage.setItem(codeStoreKey, JSON.stringify(codes));
+    }
+
+    function generateAccessCode() {
+      const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+      const existing = accessCodes();
+      let code = "";
+      do {
+        code = Array.from({ length: 4 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+      } while (existing[code]);
+      return code;
+    }
+
+    function rememberAccessCode() {
+      const code = state.login.code || generateAccessCode();
+      state.login.code = code;
+      const codes = accessCodes();
+      codes[code] = {
+        ...(codes[code] || {}),
+        email: state.login.email,
+        squad: state.login.squad,
+        savedAt: new Date().toISOString()
+      };
+      saveAccessCodes(codes);
+      return code;
+    }
+
+    function saveCurrentCodeProfile() {
+      if (!state.login?.code) return;
+      const codes = accessCodes();
+      codes[state.login.code] = {
+        ...(codes[state.login.code] || {}),
+        email: state.login.email,
+        squad: state.login.squad,
+        savedAt: new Date().toISOString(),
+        appState: {
+          groupPicks: state.groupPicks,
+          bonus: state.bonus,
+          league: state.league,
+          dashboard: {
+            lockedAt: state.dashboard.lockedAt,
+            picksArePublic: state.dashboard.picksArePublic
+          }
+        }
+      };
+      saveAccessCodes(codes);
+    }
+
+    function applyCodeProfile(profile) {
+      state.login.email = profile.email || state.login.email;
+      state.login.squad = profile.squad || state.login.squad;
+      if (profile.appState?.groupPicks) state.groupPicks = profile.appState.groupPicks;
+      if (profile.appState?.bonus) state.bonus = profile.appState.bonus;
+      if (profile.appState?.league) state.league = profile.appState.league;
+      if (profile.appState?.dashboard) {
+        state.dashboard.lockedAt = profile.appState.dashboard.lockedAt || "";
+        state.dashboard.picksArePublic = Boolean(profile.appState.dashboard.picksArePublic);
+      }
+    }
+
+    function setLoginChoice(choice) {
+      document.getElementById("loginChoiceRow").style.display = choice === "choice" ? "grid" : "none";
+      document.getElementById("firstTimePanel").classList.toggle("active", choice === "first");
+      document.getElementById("returningCodePanel").classList.toggle("active", choice === "returning");
     }
 
     function loginLinksSent() {
@@ -2303,7 +2520,7 @@
       document.getElementById("returningHome").classList.remove("active");
       const lowestAllowedSlide = state.dashboard?.userId
         ? (state.allowIntroAfterLogin ? 1 : 3)
-        : (state.loginComplete ? 1 : 0);
+        : (state.skipIntroAfterCode ? 3 : (state.loginComplete ? 1 : 0));
       activeSlide = Math.max(lowestAllowedSlide, Math.min(9, index));
       document.querySelectorAll(".slide").forEach(slide => {
         slide.classList.toggle("active", Number(slide.dataset.slide) === activeSlide);
@@ -2379,6 +2596,10 @@
       document.getElementById("emailInput").value = state.login.email || "";
       document.getElementById("squadInput").value = state.login.squad || "";
       document.getElementById("returnEmailInput").value = state.login.email || "";
+      document.getElementById("returnCodeInput").value = "";
+      document.getElementById("createdCodeText").textContent = state.login.code || "";
+      document.getElementById("createdCodeCard").classList.toggle("active", Boolean(state.login.code));
+      document.getElementById("continueWithCode").style.display = state.login.code ? "inline-flex" : "none";
       renderBrand();
     }
 
@@ -2389,23 +2610,57 @@
         showToast("Add email and squad name");
         return;
       }
-      state.pendingFirstTimeLogin = true;
+      const code = rememberAccessCode();
+      state.pendingFirstTimeLogin = false;
+      state.allowIntroAfterLogin = true;
+      state.skipIntroAfterCode = false;
+      state.loginComplete = true;
+      document.getElementById("createdCodeText").textContent = code;
+      document.getElementById("createdCodeCard").classList.add("active");
+      document.getElementById("continueWithCode").style.display = "inline-flex";
       if (window.PunditsCloud?.isReady()) {
         const user = await window.PunditsCloud.getUser();
         if (user) {
-          state.loginComplete = true;
           await hydrateOnlineState({ source: "firstTime" });
-          saveState("Welcome in");
+          saveState("Code created");
           return;
         }
-        const result = await requestLoginLink(state.login.email);
-        showToast(result.ok ? "Check your email to finish login" : result.message);
-        saveState();
+        saveState("Code created");
+        return;
+      }
+      saveState("Code created");
+    }
+
+    function continueWithCreatedCode() {
+      if (!state.login.code) {
+        showToast("Create your code first");
         return;
       }
       state.loginComplete = true;
+      state.skipIntroAfterCode = false;
       saveState("Welcome in");
       goToSlide(1);
+    }
+
+    function enterWithAccessCode() {
+      const code = document.getElementById("returnCodeInput").value.trim().toUpperCase();
+      const profile = accessCodes()[code];
+      if (!profile) {
+        showToast("Code not found");
+        return;
+      }
+      applyCodeProfile(profile);
+      state.login.code = code;
+      state.loginComplete = true;
+      state.pendingFirstTimeLogin = false;
+      state.allowIntroAfterLogin = false;
+      state.skipIntroAfterCode = true;
+      renderLogin();
+      renderGroups();
+      renderBonus();
+      renderLeague();
+      saveState("Welcome back");
+      goToSlide(3);
     }
 
     function renderGroups() {
@@ -2602,6 +2857,7 @@
       await window.PunditsCloud.waitForSession?.();
       const user = await window.PunditsCloud.getUser();
       if (!user) {
+        if (hasCodeLogin()) return null;
         showToast("Finish the email login first so leagues sync");
         return null;
       }
@@ -2627,8 +2883,9 @@
             return;
           }
           showToast(result.message);
+          return;
         }
-        return;
+        if (!hasCodeLogin()) return;
       }
 
       const seed = Math.floor(1000 + Math.random() * 9000);
@@ -2667,7 +2924,7 @@
           showToast(result.message);
           return;
         }
-        return;
+        if (!hasCodeLogin()) return;
       }
 
       state.league.joined = code;
@@ -3076,6 +3333,7 @@
       if (hasRememberedLocalUser()) {
         state.loginComplete = true;
         state.allowIntroAfterLogin = false;
+        state.skipIntroAfterCode = true;
         goToSlide(3);
         showToast("Welcome back");
         return;
@@ -3083,6 +3341,7 @@
       state.loginComplete = false;
       state.dashboard.userId = "";
       state.allowIntroAfterLogin = false;
+      state.skipIntroAfterCode = false;
       goToSlide(0);
     }
 
@@ -3171,6 +3430,7 @@
       state.loginComplete = false;
       state.pendingFirstTimeLogin = false;
       state.allowIntroAfterLogin = false;
+      state.skipIntroAfterCode = false;
       showToast("Signed out");
       goToSlide(0);
     });
@@ -3216,7 +3476,15 @@
     }
 
     document.getElementById("returnSignInOnline").addEventListener("click", () => continueOrSendLogin("returnEmailInput", "returnSignInOnline"));
+    document.querySelectorAll("[data-login-choice]").forEach(button => {
+      button.addEventListener("click", () => setLoginChoice(button.dataset.loginChoice));
+    });
     document.getElementById("firstTimeEnter").addEventListener("click", enterFirstTimeUser);
+    document.getElementById("continueWithCode").addEventListener("click", continueWithCreatedCode);
+    document.getElementById("returnCodeEnter").addEventListener("click", enterWithAccessCode);
+    document.getElementById("returnCodeInput").addEventListener("input", event => {
+      event.target.value = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+    });
     document.getElementById("dashboardLeagueSelect").addEventListener("change", async event => {
       const league = (state.league.memberships || []).find(item => item.id === event.target.value);
       if (!league) return;
