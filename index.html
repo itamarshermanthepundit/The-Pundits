@@ -1441,6 +1441,7 @@
           <button class="dot" data-go="4">5</button>
           <button class="dot" data-go="5">6</button>
           <button class="dot" data-go="6">7</button>
+          <button class="dot" data-go="7">8</button>
         </div>
       </div>
     </header>
@@ -1808,7 +1809,6 @@
                 </div>
               </div>
             </div>
-            <div class="league-list" id="leagueList"></div>
             <div class="actions">
               <button class="button" data-back>Back</button>
               <button class="button primary" data-next>Continue</button>
@@ -1826,7 +1826,7 @@
           </div>
           <div class="actions">
             <button class="button" data-back>Back</button>
-            <button class="button primary" id="finishGame">Finish</button>
+            <button class="button primary" id="goToMyLeagues" type="button">My leagues</button>
           </div>
         </div>
         <div class="bracket-board" id="lockedBracket" aria-label="Locked Round of 32 bracket">
@@ -1879,6 +1879,45 @@
               <small>Come back after the group stage to make your knockout picks</small>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="slide wide-slide" data-slide="7">
+        <div class="wide-head">
+          <div>
+            <p class="kicker" style="color: var(--grass-dark)">Step 8</p>
+            <h2>My leagues</h2>
+            <p>All the leagues you are part of live here. Pick one to see the members, leaderboard, and friend picks when they unlock.</p>
+          </div>
+          <div class="actions">
+            <button class="button" data-back>Back</button>
+            <button class="button primary" id="finishGame">Finish</button>
+          </div>
+        </div>
+        <div class="dashboard-grid dashboard-wide">
+          <section class="dashboard-panel">
+            <h3>Your leagues</h3>
+            <label>
+              Active league
+              <select id="slideLeagueSelect"></select>
+            </label>
+            <div class="league-list" id="leagueList"></div>
+          </section>
+          <section class="dashboard-panel">
+            <h3>League members</h3>
+            <p>You can see who is in the league now. Picks open after the deadline so nobody can copy.</p>
+            <div id="slideLeagueMembersList"></div>
+          </section>
+          <section class="dashboard-panel">
+            <h3>Leaderboard</h3>
+            <p>Scores update when official results are entered.</p>
+            <div id="slideLeaderboardTable"></div>
+          </section>
+          <section class="dashboard-panel">
+            <h3>Friends' picks</h3>
+            <p id="slideFriendPicksNote">Picks are hidden until the deadline.</p>
+            <div class="friend-picks" id="slideFriendPicks"></div>
+          </section>
         </div>
       </section>
     </main>
@@ -2106,7 +2145,7 @@
     function goToSlide(index) {
       document.getElementById("returningHome").classList.remove("active");
       const lowestAllowedSlide = state.dashboard?.userId ? 3 : 0;
-      activeSlide = Math.max(lowestAllowedSlide, Math.min(6, index));
+      activeSlide = Math.max(lowestAllowedSlide, Math.min(7, index));
       document.querySelectorAll(".slide").forEach(slide => {
         slide.classList.toggle("active", Number(slide.dataset.slide) === activeSlide);
       });
@@ -2441,12 +2480,19 @@
 
     function renderLeagueList() {
       const list = document.getElementById("leagueList");
+      const slideSelect = document.getElementById("slideLeagueSelect");
       const leagues = state.league.memberships || [];
       if (!leagues.length) {
         list.innerHTML = '<div class="league-item"><span>My leagues</span><strong>None yet</strong></div>';
+        slideSelect.innerHTML = '<option>No leagues yet</option>';
         return;
       }
 
+      slideSelect.innerHTML = leagues.map(league => `
+        <option value="${escapeHtml(league.id || "")}" ${league.id === state.league.activeLeagueId ? "selected" : ""}>
+          ${escapeHtml(league.name)} (${escapeHtml(league.code)})
+        </option>
+      `).join("");
       list.innerHTML = leagues.map(league => `
         <div class="league-item" data-league-id="${escapeHtml(league.id || "")}" data-league-code="${escapeHtml(league.code)}">
           <span class="league-info"><strong>${escapeHtml(league.name)}</strong> ${escapeHtml(league.status)}</span>
@@ -2576,8 +2622,11 @@
     function renderLeaderboard() {
       const members = state.dashboard.entries.members || [];
       const target = document.getElementById("leaderboardTable");
+      const slideTarget = document.getElementById("slideLeaderboardTable");
       if (!members.length) {
-        target.innerHTML = '<div class="league-item"><span>Leaderboard</span><strong>No entries yet</strong></div>';
+        const empty = '<div class="league-item"><span>Leaderboard</span><strong>No entries yet</strong></div>';
+        target.innerHTML = empty;
+        slideTarget.innerHTML = empty;
         return;
       }
 
@@ -2585,7 +2634,7 @@
         .map(member => ({ member, score: scoreEntry(member.user_id) }))
         .sort((a, b) => b.score - a.score);
 
-      target.innerHTML = `
+      const table = `
         <table class="dashboard-table">
           <thead><tr><th>#</th><th>Squad</th><th>Score</th></tr></thead>
           <tbody>
@@ -2599,47 +2648,63 @@
           </tbody>
         </table>
       `;
+      target.innerHTML = table;
+      slideTarget.innerHTML = table;
     }
 
     function renderLeagueMembers() {
       const members = state.dashboard.entries.members || [];
       const target = document.getElementById("leagueMembersList");
+      const slideTarget = document.getElementById("slideLeagueMembersList");
       if (!members.length) {
-        target.innerHTML = '<div class="league-item"><span>Members</span><strong>No members yet</strong></div>';
+        const empty = '<div class="league-item"><span>Members</span><strong>No members yet</strong></div>';
+        target.innerHTML = empty;
+        slideTarget.innerHTML = empty;
         return;
       }
 
-      target.innerHTML = members.map(member => `
+      const listHtml = members.map(member => `
         <div class="league-item">
           <span class="league-info"><strong>${escapeHtml(memberName(member))}</strong></span>
           <span>${member.user_id === state.dashboard.userId ? "You" : "Member"}</span>
         </div>
       `).join("");
+      target.innerHTML = listHtml;
+      slideTarget.innerHTML = listHtml;
     }
 
     function renderFriendPicks() {
       const members = state.dashboard.entries.members || [];
       const target = document.getElementById("friendPicks");
       const note = document.getElementById("friendPicksNote");
+      const slideTarget = document.getElementById("slideFriendPicks");
+      const slideNote = document.getElementById("slideFriendPicksNote");
       if (!members.length) {
-        target.innerHTML = '<div class="league-item"><span>Friend picks</span><strong>No entries yet</strong></div>';
+        const empty = '<div class="league-item"><span>Friend picks</span><strong>No entries yet</strong></div>';
+        target.innerHTML = empty;
+        slideTarget.innerHTML = empty;
         note.textContent = "Picks are hidden until the deadline.";
+        slideNote.textContent = note.textContent;
         return;
       }
 
       if (!state.dashboard.picksArePublic) {
         note.textContent = "Friend picks unlock after the June 11 deadline, so nobody can copy early.";
-        target.innerHTML = members.map(member => `
+        slideNote.textContent = note.textContent;
+        const hiddenHtml = members.map(member => `
           <div class="league-item">
             <span class="league-info"><strong>${escapeHtml(memberName(member))}</strong></span>
             <span>Hidden</span>
           </div>
         `).join("");
+        target.innerHTML = hiddenHtml;
+        slideTarget.innerHTML = hiddenHtml;
         return;
       }
 
       note.textContent = "Deadline passed. League picks are now open.";
-      target.innerHTML = members.map(member => {
+      slideNote.textContent = note.textContent;
+      const picksHtml = members.map(member => {
         const award = awardForUser(member.user_id) || {};
         const groupsMade = groupsForUser(member.user_id).length;
         return `
@@ -2652,6 +2717,8 @@
           </article>
         `;
       }).join("");
+      target.innerHTML = picksHtml;
+      slideTarget.innerHTML = picksHtml;
     }
 
     async function savePredictionsOnlineSilently() {
@@ -2757,7 +2824,7 @@
       renderBonus();
       saveState();
       await loadDashboardData();
-      if (isReturningUser) showReturningHome();
+      if (isReturningUser) goToSlide(7);
     }
 
     async function bootApp() {
@@ -2809,7 +2876,7 @@
             await savePredictionsOnlineSilently();
             await loadDashboardData();
             saveState("Bonus picks saved");
-            showReturningHome();
+            goToSlide(7);
             return;
           }
           saveState("Bonus picks saved");
@@ -2821,7 +2888,7 @@
     document.querySelectorAll("[data-back]").forEach(button => {
       button.addEventListener("click", () => {
         if (state.dashboard?.userId) {
-          showReturningHome();
+          goToSlide(7);
           return;
         }
         goToSlide(activeSlide - 1);
@@ -2883,7 +2950,7 @@
       if (user) {
         await hydrateOnlineState();
         await loadDashboardData();
-        showReturningHome();
+        goToSlide(7);
         button.disabled = false;
         button.textContent = originalText;
         return;
@@ -2903,6 +2970,19 @@
     document.getElementById("returnSignInOnline").addEventListener("click", () => continueOrSendLogin("returnEmailInput", "returnSignInOnline"));
     document.getElementById("firstReturnSignInOnline").addEventListener("click", () => continueOrSendLogin("firstReturnEmailInput", "firstReturnSignInOnline"));
     document.getElementById("dashboardLeagueSelect").addEventListener("change", async event => {
+      const league = (state.league.memberships || []).find(item => item.id === event.target.value);
+      if (!league) return;
+      state.league.activeLeagueId = league.id;
+      state.league.code = league.code;
+      state.league.joined = league.code;
+      state.league.name = league.name;
+      await hydratePredictions(league.id);
+      renderGroups();
+      renderBonus();
+      await loadDashboardData();
+      saveState("League selected");
+    });
+    document.getElementById("slideLeagueSelect").addEventListener("change", async event => {
       const league = (state.league.memberships || []).find(item => item.id === event.target.value);
       if (!league) return;
       state.league.activeLeagueId = league.id;
@@ -3020,10 +3100,14 @@
 
     document.getElementById("createLeague").addEventListener("click", createLeagueCode);
     document.getElementById("joinLeague").addEventListener("click", joinLeague);
+    document.getElementById("goToMyLeagues").addEventListener("click", async () => {
+      await loadDashboardData();
+      goToSlide(7);
+    });
     document.getElementById("finishGame").addEventListener("click", async () => {
       if (picksAreLocked()) {
         showToast("Picks are locked");
-        showReturningHome();
+        goToSlide(7);
         return;
       }
       await saveLogin();
@@ -3042,7 +3126,7 @@
       }
       saveState("Predictions saved");
       await loadDashboardData();
-      showReturningHome();
+      goToSlide(7);
     });
 
     bootApp();
