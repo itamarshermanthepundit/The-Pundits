@@ -2227,7 +2227,7 @@
     const storeKey = "wc26-slide-prediction-game";
     const pickLockDeadline = new Date("2026-06-11T22:00:00+03:00");
     const state = loadState();
-    let activeSlide = state.activeSlide || 0;
+    let activeSlide = 0;
 
     function loadState() {
       const fallback = {
@@ -2254,11 +2254,9 @@
             ...(saved.dashboard?.entries && !Array.isArray(saved.dashboard.entries) ? saved.dashboard.entries : {})
           }
         };
-        merged.loginComplete = Boolean(
-          saved.loginComplete ||
-          merged.dashboard.userId ||
-          Number(merged.activeSlide || 0) > 0
-        );
+        merged.loginComplete = false;
+        merged.dashboard.userId = "";
+        merged.activeSlide = 0;
         return merged;
       } catch {
         return fallback;
@@ -2656,9 +2654,9 @@
       }
 
       const seed = Math.floor(1000 + Math.random() * 9000);
-      state.league.name = name;
       state.league.code = `WC26-${seed}`;
-      addLeagueMembership(name || "My league", state.league.code, "Created");
+      state.league.name = name || state.league.code;
+      addLeagueMembership(state.league.name, state.league.code, "Created");
       renderLeague();
       saveState("League code created");
     }
@@ -3041,7 +3039,6 @@
           email: state.login.email,
           squadName: state.login.squad
         });
-        await ensureOnlineLeague();
       }
 
       const leaguesResult = await window.PunditsCloud.getLeagues();
@@ -3076,8 +3073,9 @@
       setupGroupInteractions();
       renderBonus();
       renderLeague();
-      await hydrateOnlineState();
-      if (!state.dashboard?.userId) goToSlide(activeSlide);
+      state.loginComplete = false;
+      state.dashboard.userId = "";
+      goToSlide(0);
     }
 
     async function hydratePredictions(leagueId) {
@@ -3115,14 +3113,12 @@
           }
           updateBonusSummary();
           if (state.dashboard?.userId) {
-            await ensureOnlineLeague();
-            await savePredictionsOnlineSilently();
-            await loadDashboardData();
+            if (state.league.activeLeagueId) {
+              await savePredictionsOnlineSilently();
+              await loadDashboardData();
+            }
             saveState("Bonus picks saved");
-            goToSlide(9);
-            return;
           }
-          saveState("Bonus picks saved");
         }
         goToSlide(activeSlide + 1);
       });
@@ -3252,7 +3248,6 @@
     document.getElementById("lockMyPicks").addEventListener("click", async () => {
       await saveLogin();
       updateBonusSummary();
-      await ensureOnlineLeague();
       if (!state.league.activeLeagueId) {
         showToast("Create or join a league first");
         return;
@@ -3360,7 +3355,10 @@
       }
       await saveLogin();
       updateBonusSummary();
-      await ensureOnlineLeague();
+      if (!state.league.activeLeagueId) {
+        showToast("Create or join a league first");
+        return;
+      }
       if (window.PunditsCloud?.isReady() && state.league.activeLeagueId) {
         const result = await window.PunditsCloud.savePredictions({
           leagueId: state.league.activeLeagueId,

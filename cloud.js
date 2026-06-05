@@ -111,8 +111,9 @@
     if (!profile.ok) return profile;
 
     const code = `WC26-${Math.floor(1000 + Math.random() * 9000)}`;
+    const leagueName = String(name || "").trim() || code;
     const { data, error } = await client.from("leagues").insert({
-      name,
+      name: leagueName,
       code,
       owner_id: user.id
     }).select().single();
