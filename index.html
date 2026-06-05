@@ -1621,31 +1621,13 @@
             <div class="poster-overlay">
               <p class="kicker">The Pundits</p>
               <h1>THE PUNDITS</h1>
-              <p>Choose how you want to enter, then the sign-in screen disappears from the flow.</p>
+              <p>New pundits add these details once. Returning pundits are remembered and jump straight into predictions.</p>
             </div>
           </div>
           <div class="panel">
-            <div class="login-panel active" id="loginChoicePanel">
-              <h3>Enter The Pundits</h3>
-              <div class="league-choice-grid">
-                <button class="league-choice-card" type="button" data-login-mode="first">
-                  <span class="league-choice-media">PICTURE SLOT</span>
-                  <span class="league-choice-copy">
-                    <strong>First time user</strong>
-                    <span>Add your email and club name, then start building your predictions.</span>
-                  </span>
-                </button>
-                <button class="league-choice-card" type="button" data-login-mode="returning">
-                  <span class="league-choice-media">PICTURE SLOT</span>
-                  <span class="league-choice-copy">
-                    <strong>Been here before</strong>
-                    <span>Use your email only and jump back into your game.</span>
-                  </span>
-                </button>
-              </div>
-            </div>
-            <div class="login-panel" id="firstTimePanel">
+            <div class="login-panel active" id="firstTimePanel">
               <h3>First time user</h3>
+              <p class="phone-note">This is the only place you enter your email and club name. After the login link works, this screen disappears from your flow.</p>
               <div class="form-grid">
                 <label>
                   Email
@@ -1657,21 +1639,7 @@
                 </label>
               </div>
               <div class="actions">
-                <button class="button" type="button" data-login-mode="choice">Back</button>
-                <button class="button primary" id="firstTimeEnter" type="button">Enter app</button>
-              </div>
-            </div>
-            <div class="login-panel" id="returningUserPanel">
-              <h3>Been here before</h3>
-              <div class="form-grid">
-                <label>
-                  Email
-                  <input id="firstReturnEmailInput" type="email" placeholder="you@example.com" autocomplete="email">
-                </label>
-              </div>
-              <div class="actions">
-                <button class="button" type="button" data-login-mode="choice">Back</button>
-                <button class="button primary" id="firstReturnSignInOnline" type="button">Enter app</button>
+                <button class="button primary" id="firstTimeEnter" type="button">Send login link</button>
               </div>
             </div>
           </div>
@@ -2239,6 +2207,8 @@
         league: { name: "", code: "", joined: "", memberships: [], activeLeagueId: "" },
         dashboard: { entries: { members: [], groups: [], awards: [] }, officialResults: [], lockedAt: "", userId: "", picksArePublic: false },
         loginComplete: false,
+        pendingFirstTimeLogin: false,
+        allowIntroAfterLogin: false,
         activeSlide: 0
       };
 
@@ -2258,6 +2228,8 @@
         };
         merged.loginComplete = false;
         merged.dashboard.userId = "";
+        merged.allowIntroAfterLogin = false;
+        merged.pendingFirstTimeLogin = Boolean(saved.pendingFirstTimeLogin);
         merged.activeSlide = 0;
         return merged;
       } catch {
@@ -2325,7 +2297,9 @@
 
     function goToSlide(index) {
       document.getElementById("returningHome").classList.remove("active");
-      const lowestAllowedSlide = state.dashboard?.userId ? 3 : (state.loginComplete ? 1 : 0);
+      const lowestAllowedSlide = state.dashboard?.userId
+        ? (state.allowIntroAfterLogin ? 1 : 3)
+        : (state.loginComplete ? 1 : 0);
       activeSlide = Math.max(lowestAllowedSlide, Math.min(9, index));
       document.querySelectorAll(".slide").forEach(slide => {
         slide.classList.toggle("active", Number(slide.dataset.slide) === activeSlide);
@@ -2401,14 +2375,7 @@
       document.getElementById("emailInput").value = state.login.email || "";
       document.getElementById("squadInput").value = state.login.squad || "";
       document.getElementById("returnEmailInput").value = state.login.email || "";
-      document.getElementById("firstReturnEmailInput").value = state.login.email || "";
       renderBrand();
-    }
-
-    function setLoginMode(mode) {
-      document.getElementById("loginChoicePanel").classList.toggle("active", mode === "choice");
-      document.getElementById("firstTimePanel").classList.toggle("active", mode === "first");
-      document.getElementById("returningUserPanel").classList.toggle("active", mode === "returning");
     }
 
     async function enterFirstTimeUser() {
@@ -2418,13 +2385,13 @@
         showToast("Add email and squad name");
         return;
       }
+      state.pendingFirstTimeLogin = true;
       if (window.PunditsCloud?.isReady()) {
         const user = await window.PunditsCloud.getUser();
         if (user) {
           state.loginComplete = true;
-          await hydrateOnlineState();
+          await hydrateOnlineState({ source: "firstTime" });
           saveState("Welcome in");
-          goToSlide(1);
           return;
         }
         const result = await requestLoginLink(state.login.email);
@@ -2434,33 +2401,6 @@
       }
       state.loginComplete = true;
       saveState("Welcome in");
-      goToSlide(1);
-    }
-
-    async function enterReturningUser() {
-      const email = document.getElementById("firstReturnEmailInput").value.trim();
-      if (!email) {
-        showToast("Add your email first");
-        return;
-      }
-      state.login.email = email;
-      state.login.squad ||= email.split("@")[0] || "Pundit";
-      if (window.PunditsCloud?.isReady()) {
-        const user = await window.PunditsCloud.getUser();
-        if (user) {
-          state.loginComplete = true;
-          await hydrateOnlineState();
-          await loadDashboardData();
-          goToSlide(9);
-          return;
-        }
-        const result = await requestLoginLink(email);
-        showToast(result.ok ? "Check your email to finish login" : result.message);
-        saveState();
-        return;
-      }
-      state.loginComplete = true;
-      saveState("Welcome back");
       goToSlide(1);
     }
 
@@ -2715,7 +2655,7 @@
             renderGroups();
             renderBonus();
             await savePredictionsOnlineSilently();
-            await hydrateOnlineState();
+            await hydrateOnlineState({ navigate: false });
             await loadDashboardData();
             saveState("League joined online");
             return;
@@ -3044,16 +2984,17 @@
       renderDashboard();
     }
 
-    async function hydrateOnlineState() {
+    async function hydrateOnlineState(options = {}) {
+      const { source = "remembered", navigate = true } = options;
       if (!window.PunditsCloud?.isReady()) return;
       await window.PunditsCloud.waitForSession?.();
       const user = await window.PunditsCloud.getUser();
       if (!user) return;
-      let isReturningUser = true;
       state.dashboard.userId = user.id;
       state.loginComplete = true;
 
       const profileResult = await window.PunditsCloud.getProfile();
+      const hadProfile = Boolean(profileResult.ok && profileResult.profile);
       if (profileResult.ok && profileResult.profile) {
         state.login.email = profileResult.profile.email || state.login.email;
         state.login.squad = profileResult.profile.squad_name || state.login.squad;
@@ -3067,6 +3008,9 @@
           state.login.squad = createdProfile.profile.squad_name || state.login.squad;
         }
       }
+
+      state.allowIntroAfterLogin = source === "firstTime" || (source === "authRedirect" && (!hadProfile || state.pendingFirstTimeLogin));
+      state.pendingFirstTimeLogin = false;
 
       if (state.login.email && state.login.squad) {
         await window.PunditsCloud.saveProfile({
@@ -3098,7 +3042,7 @@
       renderBonus();
       saveState();
       await loadDashboardData();
-      if (isReturningUser) goToSlide(9);
+      if (navigate) goToSlide(state.allowIntroAfterLogin ? 1 : 3);
     }
 
     async function bootApp() {
@@ -3111,7 +3055,7 @@
         await window.PunditsCloud.waitForSession?.(1200);
         const session = await window.PunditsCloud.getSession?.();
         if (session) {
-          await hydrateOnlineState();
+          await hydrateOnlineState({ source: window.PunditsCloud?.hasAuthRedirect?.() ? "authRedirect" : "remembered" });
           if (state.dashboard?.userId) {
             if (window.PunditsCloud?.hasAuthRedirect?.()) showToast("Signed in");
             return;
@@ -3119,7 +3063,7 @@
         }
       }
       if (window.PunditsCloud?.hasAuthRedirect?.()) {
-        await hydrateOnlineState();
+        await hydrateOnlineState({ source: "authRedirect" });
         if (state.dashboard?.userId) {
           showToast("Signed in");
           return;
@@ -3127,6 +3071,7 @@
       }
       state.loginComplete = false;
       state.dashboard.userId = "";
+      state.allowIntroAfterLogin = false;
       goToSlide(0);
     }
 
@@ -3213,6 +3158,8 @@
       state.dashboard.lockedAt = "";
       state.dashboard.userId = "";
       state.loginComplete = false;
+      state.pendingFirstTimeLogin = false;
+      state.allowIntroAfterLogin = false;
       showToast("Signed out");
       goToSlide(0);
     });
@@ -3241,9 +3188,7 @@
       const user = await window.PunditsCloud.getUser();
       if (user) {
         state.loginComplete = true;
-        await hydrateOnlineState();
-        await loadDashboardData();
-        goToSlide(9);
+        await hydrateOnlineState({ source: "remembered" });
         button.disabled = false;
         button.textContent = originalText;
         return;
@@ -3260,11 +3205,7 @@
     }
 
     document.getElementById("returnSignInOnline").addEventListener("click", () => continueOrSendLogin("returnEmailInput", "returnSignInOnline"));
-    document.querySelectorAll("[data-login-mode]").forEach(button => {
-      button.addEventListener("click", () => setLoginMode(button.dataset.loginMode));
-    });
     document.getElementById("firstTimeEnter").addEventListener("click", enterFirstTimeUser);
-    document.getElementById("firstReturnSignInOnline").addEventListener("click", enterReturningUser);
     document.getElementById("dashboardLeagueSelect").addEventListener("change", async event => {
       const league = (state.league.memberships || []).find(item => item.id === event.target.value);
       if (!league) return;
