@@ -220,7 +220,7 @@ begin
   end loop;
 
   insert into public.leagues (code, name, owner_id)
-  values (new_code, coalesce(nullif(p_name, ''), new_code), player.id)
+  values (new_code, coalesce(nullif(p_name, ''), 'My Pundits League'), player.id)
   returning * into created_league;
 
   insert into public.league_members (league_id, user_id)

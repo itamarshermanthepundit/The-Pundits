@@ -164,7 +164,7 @@
     if (!profile.ok) return profile;
 
     const code = `WC26-${Math.floor(1000 + Math.random() * 9000)}`;
-    const leagueName = String(name || "").trim() || code;
+    const leagueName = String(name || "").trim() || "My Pundits League";
     const { data, error } = await client.from("leagues").insert({
       name: leagueName,
       code,
@@ -211,7 +211,7 @@
       p_access_code: accessCode,
       p_email: email || "",
       p_squad_name: squadName || "New Pundit",
-      p_name: name || "My league"
+      p_name: name || "My Pundits League"
     });
     return error ? { ok: false, message: error.message } : { ok: true, league: data };
   }

@@ -753,6 +753,14 @@
       letter-spacing: .02em;
     }
 
+    .league-choice-media img {
+      width: 100%;
+      height: 100%;
+      min-height: 205px;
+      object-fit: cover;
+      display: block;
+    }
+
     .league-choice-copy {
       display: grid;
       gap: 6px;
@@ -1979,14 +1987,18 @@
             <p class="phone-note">Create a private league, send the code to your friends, and see who really knows ball when the tournament starts.</p>
             <div class="league-choice-grid">
               <button class="league-choice-card" type="button" data-go="6">
-                <span class="league-choice-media">PICTURE SLOT</span>
+                <span class="league-choice-media">
+                  <img src="assets/robben.avif" alt="Arjen Robben celebrating">
+                </span>
                 <span class="league-choice-copy">
                   <strong>Create a league</strong>
                   <span>Start the room, share the code, and make your friends chase your football IQ.</span>
                 </span>
               </button>
               <button class="league-choice-card" type="button" data-go="7">
-                <span class="league-choice-media">PICTURE SLOT</span>
+                <span class="league-choice-media">
+                  <img src="assets/james.jpg" alt="James Rodriguez celebrating for Colombia">
+                </span>
                 <span class="league-choice-copy">
                   <strong>Join a league</strong>
                   <span>Use your friend's code and get into the table before the picks lock.</span>
@@ -1995,6 +2007,7 @@
             </div>
             <div class="actions">
               <button class="button" data-back>Back</button>
+              <button class="button primary" data-go="9">My leagues</button>
             </div>
           </div>
         </div>
@@ -2136,7 +2149,7 @@
           <div>
             <p class="kicker" style="color: var(--grass-dark)">Step 9</p>
             <h2>My leagues</h2>
-            <p>All the leagues you are part of live here. Pick one to see the members, leaderboard, and friend picks when they unlock.</p>
+            <p>All the leagues you are part of live here. Every member can see who is in the room, while friend picks stay hidden until they unlock.</p>
           </div>
           <div class="actions">
             <button class="button" data-back>Back</button>
@@ -2154,7 +2167,7 @@
           </section>
           <section class="dashboard-panel">
             <h3>League members</h3>
-            <p>You can see who is in the league now. Picks open after the deadline so nobody can copy.</p>
+            <p>Every member can see who is playing in this league. Picks open after the deadline so nobody can copy.</p>
             <div id="slideLeagueMembersList"></div>
           </section>
           <section class="dashboard-panel">
@@ -2400,6 +2413,18 @@
 
     function hasCodeLogin() {
       return Boolean(state.loginComplete && state.login?.code);
+    }
+
+    function onlineSyncExpected() {
+      return Boolean(window.PUNDITS_SUPABASE?.url && window.PUNDITS_SUPABASE?.anonKey);
+    }
+
+    function onlineSyncReady() {
+      return Boolean(window.PunditsCloud?.isReady?.());
+    }
+
+    function leagueDisplayName() {
+      return state.league.name || "None";
     }
 
     function normalizeLeagueCode(value) {
@@ -2877,9 +2902,9 @@
       state.league.memberships ||= [];
       document.getElementById("leagueNameInput").value = state.league.name || "";
       document.getElementById("leagueCode").textContent = state.league.code || "Not created";
-      document.getElementById("joinCodeInput").value = state.league.joined || "";
-      document.getElementById("currentLeague").textContent = state.league.joined || state.league.code || "None";
-      document.getElementById("currentLeagueJoin").textContent = state.league.joined || state.league.code || "None";
+      document.getElementById("joinCodeInput").value = "";
+      document.getElementById("currentLeague").textContent = leagueDisplayName();
+      document.getElementById("currentLeagueJoin").textContent = leagueDisplayName();
       renderLeagueList();
     }
 
@@ -2910,10 +2935,14 @@
 
     async function createLeagueCode() {
       const name = document.getElementById("leagueNameInput").value.trim();
+      if (onlineSyncExpected() && !onlineSyncReady()) {
+        showToast(window.PunditsCloud?.setupError?.() || "Online sync is not ready. Refresh after uploading the latest app.");
+        return;
+      }
       if (window.PunditsCloud?.isReady()) {
         const user = await requireOnlineUser();
         if (user) {
-          const result = await window.PunditsCloud.createLeague(name || "My league");
+          const result = await window.PunditsCloud.createLeague(name || "My Pundits League");
           if (result.ok) {
             state.league.name = result.league.name;
             state.league.code = result.league.code;
@@ -2930,7 +2959,7 @@
         if (!hasCodeLogin()) return;
         const result = await window.PunditsCloud.createLeagueWithCode({
           ...codeProfilePayload(),
-          name: name || "My league"
+          name: name || "My Pundits League"
         });
         if (result.ok) {
           state.league.name = result.league.name;
@@ -2949,7 +2978,7 @@
 
       const seed = Math.floor(1000 + Math.random() * 9000);
       state.league.code = `WC26-${seed}`;
-      state.league.name = name || state.league.code;
+      state.league.name = name || "My Pundits League";
       addLeagueMembership(state.league.name, state.league.code, "Created");
       renderLeague();
       saveState("League code created");
@@ -2962,8 +2991,8 @@
         return;
       }
       document.getElementById("joinCodeInput").value = code;
-      if (window.PunditsCloud && !window.PunditsCloud.isReady?.() && window.PunditsCloud.setupError?.()) {
-        showToast(window.PunditsCloud.setupError());
+      if (onlineSyncExpected() && !onlineSyncReady()) {
+        showToast(window.PunditsCloud?.setupError?.() || "Online sync is not ready. Refresh after uploading the latest app.");
         return;
       }
 
