@@ -2252,6 +2252,10 @@
       showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 4200);
     }
 
+    function hasRememberedLocalUser() {
+      return Boolean(state.login?.email && state.login?.squad);
+    }
+
     function loginLinksSent() {
       try {
         return JSON.parse(localStorage.getItem(loginLinkStoreKey) || "{}");
@@ -3052,7 +3056,7 @@
       renderBonus();
       renderLeague();
       if (window.PunditsCloud?.isReady()) {
-        await window.PunditsCloud.waitForSession?.(1200);
+        await window.PunditsCloud.waitForSession?.(5000);
         const session = await window.PunditsCloud.getSession?.();
         if (session) {
           await hydrateOnlineState({ source: window.PunditsCloud?.hasAuthRedirect?.() ? "authRedirect" : "remembered" });
@@ -3068,6 +3072,13 @@
           showToast("Signed in");
           return;
         }
+      }
+      if (hasRememberedLocalUser()) {
+        state.loginComplete = true;
+        state.allowIntroAfterLogin = false;
+        goToSlide(3);
+        showToast("Welcome back");
+        return;
       }
       state.loginComplete = false;
       state.dashboard.userId = "";

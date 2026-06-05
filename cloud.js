@@ -1,7 +1,13 @@
 (() => {
   const config = window.PUNDITS_SUPABASE;
   const hasSupabase = Boolean(config?.url && config?.anonKey && window.supabase);
-  const client = hasSupabase ? window.supabase.createClient(config.url, config.anonKey) : null;
+  const client = hasSupabase ? window.supabase.createClient(config.url, config.anonKey, {
+    auth: {
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      persistSession: true
+    }
+  }) : null;
 
   function isReady() {
     return Boolean(client);
