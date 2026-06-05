@@ -763,6 +763,15 @@
       font-size: 1.15rem;
     }
 
+    .login-panel {
+      display: none;
+    }
+
+    .login-panel.active {
+      display: grid;
+      gap: 14px;
+    }
+
     .champion-picker {
       display: none;
       margin-top: 8px;
@@ -1610,35 +1619,60 @@
           <div class="hero-panel poster-panel">
             <img class="poster-image" src="assets/FIFA-world-cup-2026-752x440.webp" alt="FIFA World Cup 2026 poster">
             <div class="poster-overlay">
-              <p class="kicker">Step 1</p>
-              <h1>Enter your squad.</h1>
-              <p>First time in? Name your squad and start the full prediction flow. Already signed up? Use only your email and jump back to your card.</p>
+              <p class="kicker">The Pundits</p>
+              <h1>THE PUNDITS</h1>
+              <p>Choose how you want to enter, then the sign-in screen disappears from the flow.</p>
             </div>
           </div>
           <div class="panel">
-            <h3>Already signed up?</h3>
-            <div class="return-login" style="box-shadow: none; margin-bottom: 14px">
-              <label>
-                Email
-                <input id="firstReturnEmailInput" type="email" placeholder="you@example.com" autocomplete="email">
-              </label>
-              <button class="button primary" id="firstReturnSignInOnline" type="button">Continue</button>
+            <div class="login-panel active" id="loginChoicePanel">
+              <h3>Enter The Pundits</h3>
+              <div class="league-choice-grid">
+                <button class="league-choice-card" type="button" data-login-mode="first">
+                  <span class="league-choice-media">PICTURE SLOT</span>
+                  <span class="league-choice-copy">
+                    <strong>First time user</strong>
+                    <span>Add your email and club name, then start building your predictions.</span>
+                  </span>
+                </button>
+                <button class="league-choice-card" type="button" data-login-mode="returning">
+                  <span class="league-choice-media">PICTURE SLOT</span>
+                  <span class="league-choice-copy">
+                    <strong>Been here before</strong>
+                    <span>Use your email only and jump back into your game.</span>
+                  </span>
+                </button>
+              </div>
             </div>
-            <h3>First-time setup</h3>
-            <div class="form-grid">
-              <label>
-                Email
-                <input id="emailInput" type="email" placeholder="you@example.com" autocomplete="email">
-              </label>
-              <label>
-                Squad name
-                <input id="squadInput" placeholder="The Last-Minute Winners" autocomplete="organization">
-              </label>
+            <div class="login-panel" id="firstTimePanel">
+              <h3>First time user</h3>
+              <div class="form-grid">
+                <label>
+                  Email
+                  <input id="emailInput" type="email" placeholder="you@example.com" autocomplete="email">
+                </label>
+                <label>
+                  Club name
+                  <input id="squadInput" placeholder="The Last-Minute Winners" autocomplete="organization">
+                </label>
+              </div>
+              <div class="actions">
+                <button class="button" type="button" data-login-mode="choice">Back</button>
+                <button class="button primary" id="firstTimeEnter" type="button">Enter app</button>
+              </div>
             </div>
-            <div class="actions">
-              <button class="button" disabled>Back</button>
-              <button class="button" id="signInOnline" type="button">Continue</button>
-              <button class="button primary" data-next>Save and continue</button>
+            <div class="login-panel" id="returningUserPanel">
+              <h3>Been here before</h3>
+              <div class="form-grid">
+                <label>
+                  Email
+                  <input id="firstReturnEmailInput" type="email" placeholder="you@example.com" autocomplete="email">
+                </label>
+              </div>
+              <div class="actions">
+                <button class="button" type="button" data-login-mode="choice">Back</button>
+                <button class="button primary" id="firstReturnSignInOnline" type="button">Enter app</button>
+              </div>
             </div>
           </div>
         </div>
@@ -2253,13 +2287,13 @@
 
     function setProgressVisibility() {
       const progress = document.querySelector(".progress");
-      const hideProgress = state.dashboard?.userId || state.loginComplete || document.getElementById("returningHome").classList.contains("active") || activeSlide === 0;
+      const hideProgress = state.dashboard?.userId || document.getElementById("returningHome").classList.contains("active") || activeSlide === 0;
       progress.style.display = hideProgress ? "none" : "";
     }
 
     function goToSlide(index) {
       document.getElementById("returningHome").classList.remove("active");
-      const lowestAllowedSlide = state.dashboard?.userId || state.loginComplete ? 3 : 0;
+      const lowestAllowedSlide = state.dashboard?.userId ? 3 : (state.loginComplete ? 1 : 0);
       activeSlide = Math.max(lowestAllowedSlide, Math.min(9, index));
       document.querySelectorAll(".slide").forEach(slide => {
         slide.classList.toggle("active", Number(slide.dataset.slide) === activeSlide);
@@ -2337,6 +2371,53 @@
       document.getElementById("returnEmailInput").value = state.login.email || "";
       document.getElementById("firstReturnEmailInput").value = state.login.email || "";
       renderBrand();
+    }
+
+    function setLoginMode(mode) {
+      document.getElementById("loginChoicePanel").classList.toggle("active", mode === "choice");
+      document.getElementById("firstTimePanel").classList.toggle("active", mode === "first");
+      document.getElementById("returningUserPanel").classList.toggle("active", mode === "returning");
+    }
+
+    async function enterFirstTimeUser() {
+      state.login.email = document.getElementById("emailInput").value.trim();
+      state.login.squad = document.getElementById("squadInput").value.trim();
+      if (!state.login.email || !state.login.squad) {
+        showToast("Add email and squad name");
+        return;
+      }
+      state.loginComplete = true;
+      if (window.PunditsCloud?.isReady()) {
+        const user = await window.PunditsCloud.getUser();
+        if (user) await hydrateOnlineState();
+      }
+      saveState("Welcome in");
+      goToSlide(1);
+    }
+
+    async function enterReturningUser() {
+      const email = document.getElementById("firstReturnEmailInput").value.trim();
+      if (!email) {
+        showToast("Add your email first");
+        return;
+      }
+      state.login.email = email;
+      state.login.squad ||= email.split("@")[0] || "Pundit";
+      state.loginComplete = true;
+      if (window.PunditsCloud?.isReady()) {
+        const user = await window.PunditsCloud.getUser();
+        if (user) {
+          await hydrateOnlineState();
+          await loadDashboardData();
+          goToSlide(9);
+          return;
+        }
+        window.PunditsCloud.signIn(email).then(result => {
+          if (result.ok) showToast("Login email sent");
+        });
+      }
+      saveState("Welcome back");
+      goToSlide(1);
     }
 
     function renderGroups() {
@@ -2532,10 +2613,7 @@
       if (!window.PunditsCloud?.isReady()) return null;
       await window.PunditsCloud.waitForSession?.();
       const user = await window.PunditsCloud.getUser();
-      if (!user) {
-        showToast("Open your email login link first");
-        return null;
-      }
+      if (!user) return null;
       state.dashboard.userId = user.id;
       state.loginComplete = true;
       return user;
@@ -2545,19 +2623,20 @@
       const name = document.getElementById("leagueNameInput").value.trim();
       if (window.PunditsCloud?.isReady()) {
         const user = await requireOnlineUser();
-        if (!user) return;
-        const result = await window.PunditsCloud.createLeague(name || "My league");
-        if (result.ok) {
-          state.league.name = result.league.name;
-          state.league.code = result.league.code;
-          state.league.activeLeagueId = result.league.id;
-          addLeagueMembership(result.league.name, result.league.code, "Created", result.league.id);
-          renderLeague();
-          await savePredictionsOnlineSilently();
-          saveState("League created online");
-          return;
+        if (user) {
+          const result = await window.PunditsCloud.createLeague(name || "My league");
+          if (result.ok) {
+            state.league.name = result.league.name;
+            state.league.code = result.league.code;
+            state.league.activeLeagueId = result.league.id;
+            addLeagueMembership(result.league.name, result.league.code, "Created", result.league.id);
+            renderLeague();
+            await savePredictionsOnlineSilently();
+            saveState("League created online");
+            return;
+          }
+          showToast(result.message);
         }
-        showToast(result.message);
       }
 
       const seed = Math.floor(1000 + Math.random() * 9000);
@@ -2577,24 +2656,25 @@
 
       if (window.PunditsCloud?.isReady()) {
         const user = await requireOnlineUser();
-        if (!user) return;
-        const result = await window.PunditsCloud.joinLeague(code);
-        if (result.ok) {
-          state.league.joined = result.league.code;
-          state.league.activeLeagueId = result.league.id;
-          addLeagueMembership(result.league.name, result.league.code, "Joined", result.league.id);
-          renderLeague();
-          await hydratePredictions(result.league.id);
-          renderGroups();
-          renderBonus();
-          await savePredictionsOnlineSilently();
-          await hydrateOnlineState();
-          await loadDashboardData();
-          saveState("League joined online");
+        if (user) {
+          const result = await window.PunditsCloud.joinLeague(code);
+          if (result.ok) {
+            state.league.joined = result.league.code;
+            state.league.activeLeagueId = result.league.id;
+            addLeagueMembership(result.league.name, result.league.code, "Joined", result.league.id);
+            renderLeague();
+            await hydratePredictions(result.league.id);
+            renderGroups();
+            renderBonus();
+            await savePredictionsOnlineSilently();
+            await hydrateOnlineState();
+            await loadDashboardData();
+            saveState("League joined online");
+            return;
+          }
+          showToast(result.message);
           return;
         }
-        showToast(result.message);
-        return;
       }
 
       state.league.joined = code;
@@ -3109,9 +3189,12 @@
       }, result.ok ? 12000 : 3000);
     }
 
-    document.getElementById("signInOnline").addEventListener("click", () => continueOrSendLogin("emailInput", "signInOnline"));
     document.getElementById("returnSignInOnline").addEventListener("click", () => continueOrSendLogin("returnEmailInput", "returnSignInOnline"));
-    document.getElementById("firstReturnSignInOnline").addEventListener("click", () => continueOrSendLogin("firstReturnEmailInput", "firstReturnSignInOnline"));
+    document.querySelectorAll("[data-login-mode]").forEach(button => {
+      button.addEventListener("click", () => setLoginMode(button.dataset.loginMode));
+    });
+    document.getElementById("firstTimeEnter").addEventListener("click", enterFirstTimeUser);
+    document.getElementById("firstReturnSignInOnline").addEventListener("click", enterReturningUser);
     document.getElementById("dashboardLeagueSelect").addEventListener("change", async event => {
       const league = (state.league.memberships || []).find(item => item.id === event.target.value);
       if (!league) return;
