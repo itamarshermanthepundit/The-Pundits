@@ -244,7 +244,7 @@
 
     async function loadStats() {
       setText("statsStatus", "Refreshing...");
-      const { data, error } = await client.rpc("get_admin_app_stats");
+      const { data, error } = await client.rpc("get_admin_app_stats", { p_access_code: null });
       if (error) {
         setText("statsStatus", error.message);
         return;

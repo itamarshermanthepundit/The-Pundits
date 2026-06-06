@@ -409,6 +409,14 @@
     return error ? { ok: false, message: error.message } : { ok: true, results: data || [] };
   }
 
+  async function getAdminStats(accessCode = "") {
+    if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const { data, error } = await client.rpc("get_admin_app_stats", {
+      p_access_code: accessCode || null
+    });
+    return error ? { ok: false, message: error.message } : { ok: true, stats: data || {} };
+  }
+
   window.PunditsCloud = {
     isReady,
     setupError,
@@ -442,6 +450,7 @@
     lockPredictions,
     getLeagueEntries,
     getLeagueEntriesWithCode,
-    getOfficialResults
+    getOfficialResults,
+    getAdminStats
   };
 })();

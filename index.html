@@ -2250,6 +2250,30 @@
             </label>
             <button class="button primary" id="saveProfileName" type="button">Save name</button>
           </section>
+          <section class="dashboard-panel" id="adminStatsPanel" hidden>
+            <div class="wide-head">
+              <div>
+                <h3>Admin overview</h3>
+                <p>Live activity across The Pundits.</p>
+              </div>
+              <button class="button" id="refreshAdminStats" type="button">Refresh</button>
+            </div>
+            <div class="control-grid">
+              <div class="control">
+                <strong>Registered users</strong>
+                <span class="stat-number" id="appUsersCount">-</span>
+              </div>
+              <div class="control">
+                <strong>Leagues</strong>
+                <span class="stat-number" id="appLeaguesCount">-</span>
+              </div>
+              <div class="control">
+                <strong>Memberships</strong>
+                <span class="stat-number" id="appMembershipsCount">-</span>
+              </div>
+            </div>
+            <p id="adminStatsStatus">Loading live totals...</p>
+          </section>
           <section class="dashboard-panel">
             <h3>Your leagues</h3>
             <label>
@@ -2473,8 +2497,11 @@
     const loginLinkStoreKey = "pundits-login-links-sent";
     const loginLinkReuseMs = 23 * 60 * 60 * 1000;
     const pickLockDeadline = new Date("2026-06-11T22:00:00+03:00");
+    const adminEmail = "itamarsherman@gmail.com";
     const state = loadState();
     let activeSlide = 0;
+    let adminStatsLoading = false;
+    let adminStatsLoaded = false;
 
     function loadState() {
       const fallback = {
@@ -3463,6 +3490,7 @@
       document.getElementById("editBigCalls").disabled = picksAreLocked();
       renderTournamentState();
       renderDashboardGroupSummary();
+      renderAdminStatsPanel();
 
       const leagues = state.league.memberships || [];
       const dashboardLeagues = document.getElementById("dashboardLeagues");
@@ -3493,6 +3521,33 @@
       renderLeagueMembers();
       renderLeaderboard();
       renderFriendPicks();
+    }
+
+    function isAdminIdentity() {
+      return state.login.email?.trim().toLowerCase() === adminEmail;
+    }
+
+    function renderAdminStatsPanel() {
+      const panel = document.getElementById("adminStatsPanel");
+      panel.hidden = !isAdminIdentity();
+      if (!panel.hidden && !adminStatsLoaded && !adminStatsLoading) loadAdminStats();
+    }
+
+    async function loadAdminStats() {
+      if (!isAdminIdentity() || adminStatsLoading) return;
+      adminStatsLoading = true;
+      document.getElementById("adminStatsStatus").textContent = "Refreshing live totals...";
+      const result = await window.PunditsCloud?.getAdminStats(state.login.code || "");
+      adminStatsLoading = false;
+      if (!result?.ok) {
+        document.getElementById("adminStatsStatus").textContent = result?.message || "Could not load totals.";
+        return;
+      }
+      adminStatsLoaded = true;
+      document.getElementById("appUsersCount").textContent = result.stats.users ?? 0;
+      document.getElementById("appLeaguesCount").textContent = result.stats.leagues ?? 0;
+      document.getElementById("appMembershipsCount").textContent = result.stats.memberships ?? 0;
+      document.getElementById("adminStatsStatus").textContent = `Updated ${new Date().toLocaleTimeString()}`;
     }
 
     function renderDashboardGroupSummary() {
@@ -3916,6 +3971,10 @@
       goToSlide(4);
     });
     document.getElementById("refreshDashboard").addEventListener("click", loadDashboardData);
+    document.getElementById("refreshAdminStats").addEventListener("click", () => {
+      adminStatsLoaded = false;
+      loadAdminStats();
+    });
     document.getElementById("signOutOnline").addEventListener("click", async () => {
       await window.PunditsCloud?.signOut();
       state.dashboard.lockedAt = "";
