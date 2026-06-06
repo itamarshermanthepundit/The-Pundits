@@ -130,34 +130,18 @@
   async function saveProfile({ email, squadName }) {
     const user = await getUser();
     if (!client || !user) return { ok: false, message: "Sign in before saving online." };
-
-    const { error } = await client.from("profiles").upsert({
-      id: user.id,
-      email,
-      squad_name: squadName
+    const { data, error } = await client.rpc("sync_authenticated_profile", {
+      p_squad_name: squadName || null
     });
-    return error ? { ok: false, message: error.message } : { ok: true };
+    return error ? { ok: false, message: error.message } : { ok: true, profile: data };
   }
 
   async function ensureProfile(profile = {}) {
     const user = await getUser();
     if (!client || !user) return { ok: false, message: "Sign in first." };
-
-    const { data: existing, error: existingError } = await client
-      .from("profiles")
-      .select("id,email,squad_name")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (existingError) return { ok: false, message: existingError.message };
-    if (existing) return { ok: true, profile: existing };
-
-    const email = profile.email || user.email || "";
-    const squadName = profile.squadName || email.split("@")[0] || "New Pundit";
-    const { data, error } = await client.from("profiles").insert({
-      id: user.id,
-      email,
-      squad_name: squadName
-    }).select().single();
+    const { data, error } = await client.rpc("sync_authenticated_profile", {
+      p_squad_name: profile.squadName || null
+    });
     return error ? { ok: false, message: error.message } : { ok: true, profile: data };
   }
 
@@ -394,39 +378,14 @@
   async function getLeagueEntries(leagueId) {
     const user = await getUser();
     if (!client || !user || !leagueId) return { ok: false, message: "Choose a league first." };
-    const picksArePublic = Date.now() >= new Date("2026-06-11T22:00:00+03:00").getTime();
-
-    let groupQuery = client.from("group_predictions").select("*").eq("league_id", leagueId);
-    let awardQuery = client.from("award_predictions").select("*").eq("league_id", leagueId);
-    if (!picksArePublic) {
-      groupQuery = groupQuery.eq("user_id", user.id);
-      awardQuery = awardQuery.eq("user_id", user.id);
-    }
-
-    const [{ data: members, error: membersError }, { data: groups, error: groupError }, { data: awards, error: awardError }] = await Promise.all([
-      client.from("league_members").select("user_id, profiles(email,squad_name)").eq("league_id", leagueId),
-      groupQuery,
-      awardQuery
-    ]);
-
-    if (membersError) return { ok: false, message: membersError.message };
-    if (groupError) return { ok: false, message: groupError.message };
-    if (awardError) return { ok: false, message: awardError.message };
-
-    const memberRows = members || [];
-    const missingProfiles = memberRows.filter(member => !member.profiles).map(member => member.user_id);
-    if (missingProfiles.length) {
-      const { data: profiles } = await client
-        .from("profiles")
-        .select("id,email,squad_name")
-        .in("id", missingProfiles);
-      const byId = new Map((profiles || []).map(profile => [profile.id, profile]));
-      memberRows.forEach(member => {
-        if (!member.profiles) member.profiles = byId.get(member.user_id) || null;
-      });
-    }
-
-    return { ok: true, members: memberRows, groups: groups || [], awards: awards || [], picksArePublic };
+    const { data, error } = await client.rpc("get_league_entries_for_user", { p_league_id: leagueId });
+    return error ? { ok: false, message: error.message } : {
+      ok: true,
+      members: data?.members || [],
+      groups: data?.groups || [],
+      awards: data?.awards || [],
+      picksArePublic: Boolean(data?.picksArePublic)
+    };
   }
 
   async function getLeagueEntriesWithCode({ accessCode, leagueId }) {

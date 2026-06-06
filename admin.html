@@ -191,11 +191,7 @@
     }
 
     async function ensureAdminProfile(user) {
-      return client.from("profiles").upsert({
-        id: user.id,
-        email: user.email,
-        squad_name: "The Pundits Admin"
-      }, { onConflict: "id" });
+      return client.rpc("sync_authenticated_profile", { p_squad_name: null });
     }
 
     async function loadAdmin() {

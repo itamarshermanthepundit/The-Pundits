@@ -2212,7 +2212,6 @@
           </div>
           <div class="actions">
             <button class="button" data-back>Back</button>
-            <button class="button primary" id="finishGame">Finish</button>
           </div>
         </div>
         <div class="dashboard-grid dashboard-wide">
@@ -2793,7 +2792,7 @@
     function setPickControlsLocked() {
       const locked = picksAreLocked();
       document.querySelectorAll(
-        "#groupsGrid button, #resetGroups, #championToggle, #championSearch, [data-player-toggle], #championPicker button, .player-list button, #finishGame"
+        "#groupsGrid button, #resetGroups, #championToggle, #championSearch, [data-player-toggle], #championPicker button, .player-list button"
       ).forEach(button => {
         button.disabled = locked;
       });
@@ -3162,12 +3161,16 @@
           showToast(result.message);
           return;
         }
+        if (result.profile?.id) state.dashboard.userId = result.profile.id;
+        await hydrateCodeLeagues();
         await loadDashboardData();
       }
 
       renderLogin();
+      renderLeague();
       renderDashboard();
       saveState("Display name updated");
+      showToast("Display name updated");
     }
 
     function flagMarkup(team) {
@@ -3202,7 +3205,7 @@
         return;
       }
       if (window.PunditsCloud?.isReady()) {
-        const user = await requireOnlineUser();
+        const user = hasCodeLogin() ? null : await requireOnlineUser();
         if (user) {
           const result = await window.PunditsCloud.createLeague(name || "My Pundits League");
           if (result.ok) {
@@ -3260,7 +3263,7 @@
       }
 
       if (window.PunditsCloud?.isReady()) {
-        const user = await requireOnlineUser();
+        const user = hasCodeLogin() ? null : await requireOnlineUser();
         if (user) {
           const result = await window.PunditsCloud.joinLeague(code);
           if (result.ok) {
@@ -4086,34 +4089,6 @@
       await loadDashboardData();
       goToSlide(9);
     });
-    document.getElementById("finishGame").addEventListener("click", async () => {
-      if (picksAreLocked()) {
-        showToast("Picks are locked");
-        goToSlide(9);
-        return;
-      }
-      await saveLogin();
-      updateBonusSummary();
-      if (!state.league.activeLeagueId) {
-        showToast("Create or join a league first");
-        return;
-      }
-      if (window.PunditsCloud?.isReady() && state.league.activeLeagueId) {
-        const result = await window.PunditsCloud.savePredictions({
-          leagueId: state.league.activeLeagueId,
-          groupPicks: state.groupPicks,
-          bonus: state.bonus
-        });
-        if (!result.ok) {
-          showToast(result.message);
-          return;
-        }
-      }
-      saveState("Predictions saved");
-      await loadDashboardData();
-      goToSlide(9);
-    });
-
     bootApp();
   </script>
 </body>
