@@ -1780,9 +1780,14 @@
                   Pundit code
                   <input id="returnCodeInput" maxlength="4" placeholder="ABCD" autocomplete="one-time-code">
                 </label>
+                <label>
+                  Forgot your code?
+                  <input id="recoveryEmailInput" type="email" placeholder="Enter your registered email" autocomplete="email">
+                </label>
               </div>
               <div class="actions">
                 <button class="button" type="button" data-login-choice="choice">Back</button>
+                <button class="button" id="recoverCodeButton" type="button">Email my code</button>
                 <button class="button primary" id="returnCodeEnter" type="button">Enter app</button>
               </div>
             </div>
@@ -2158,6 +2163,15 @@
           </div>
         </div>
         <div class="dashboard-grid dashboard-wide">
+          <section class="dashboard-panel">
+            <h3>Your profile</h3>
+            <p>This is the name other players see in leagues and on leaderboards.</p>
+            <label>
+              Display name
+              <input id="profileNameInput" placeholder="Your pundit name" autocomplete="nickname">
+            </label>
+            <button class="button primary" id="saveProfileName" type="button">Save name</button>
+          </section>
           <section class="dashboard-panel">
             <h3>Your leagues</h3>
             <label>
@@ -2649,11 +2663,57 @@
       document.getElementById("emailInput").value = state.login.email || "";
       document.getElementById("squadInput").value = state.login.squad || "";
       document.getElementById("returnEmailInput").value = state.login.email || "";
+      document.getElementById("recoveryEmailInput").value = state.login.email || "";
       document.getElementById("returnCodeInput").value = "";
       document.getElementById("createdCodeText").textContent = state.login.code || "";
       document.getElementById("createdCodeCard").classList.toggle("active", Boolean(state.login.code));
       document.getElementById("continueWithCode").style.display = state.login.code ? "inline-flex" : "none";
       renderBrand();
+    }
+
+    async function handleVerifiedCodeRecovery() {
+      if (!window.PunditsCloud?.isCodeRecovery?.()) return false;
+
+      const recovered = await window.PunditsCloud.recoverPunditCode();
+      if (!recovered.ok || !recovered.code) {
+        await window.PunditsCloud.signOut();
+        window.history.replaceState({}, "", window.location.pathname);
+        setLoginChoice("returning");
+        goToSlide(0);
+        showToast(recovered.message || "No Pundits code was found for this email.");
+        return true;
+      }
+
+      const profileResult = await window.PunditsCloud.getProfileByCode(recovered.code);
+      if (!profileResult.ok || !profileResult.profile) {
+        await window.PunditsCloud.signOut();
+        window.history.replaceState({}, "", window.location.pathname);
+        setLoginChoice("returning");
+        goToSlide(0);
+        showToast(profileResult.message || "Could not restore this account.");
+        return true;
+      }
+
+      state.login.code = recovered.code;
+      state.login.email = profileResult.profile.email || "";
+      state.login.squad = profileResult.profile.squad_name || "New Pundit";
+      state.dashboard.userId = profileResult.profile.id || "";
+      state.loginComplete = true;
+      state.allowIntroAfterLogin = false;
+      state.skipIntroAfterCode = true;
+      rememberAccessCode();
+      saveCurrentCodeProfile();
+      await window.PunditsCloud.signOut();
+      await hydrateCodeLeagues();
+      renderLogin();
+      renderGroups();
+      renderBonus();
+      renderLeague();
+      saveState();
+      window.history.replaceState({}, "", window.location.pathname);
+      goToSlide(3);
+      showToast(`Code recovered: ${recovered.code}. It is now saved on this device.`);
+      return true;
     }
 
     async function enterFirstTimeUser() {
@@ -2906,12 +2966,43 @@
 
     function renderLeague() {
       state.league.memberships ||= [];
+      document.getElementById("profileNameInput").value = state.login.squad || "";
       document.getElementById("leagueNameInput").value = state.league.name || "";
       document.getElementById("leagueCode").textContent = state.league.code || "Not created";
       document.getElementById("joinCodeInput").value = "";
       document.getElementById("currentLeague").textContent = leagueDisplayName();
       document.getElementById("currentLeagueJoin").textContent = leagueDisplayName();
       renderLeagueList();
+    }
+
+    async function saveProfileName() {
+      const name = document.getElementById("profileNameInput").value.trim();
+      if (!name) {
+        showToast("Add a display name first");
+        return;
+      }
+
+      state.login.squad = name;
+      document.getElementById("squadInput").value = name;
+      saveCurrentCodeProfile();
+
+      if (window.PunditsCloud?.isReady()) {
+        const result = hasCodeLogin()
+          ? await window.PunditsCloud.ensureCodeProfile(codeProfilePayload())
+          : await window.PunditsCloud.saveProfile({
+              email: state.login.email,
+              squadName: name
+            });
+        if (!result.ok) {
+          showToast(result.message);
+          return;
+        }
+        await loadDashboardData();
+      }
+
+      renderLogin();
+      renderDashboard();
+      saveState("Display name updated");
     }
 
     function flagMarkup(team) {
@@ -3112,7 +3203,12 @@
         return;
       }
 
-      const result = await window.PunditsCloud.leaveLeague(leagueId);
+      const result = hasCodeLogin()
+        ? await window.PunditsCloud.leaveLeagueWithCode({
+            accessCode: state.login.code,
+            leagueId
+          })
+        : await window.PunditsCloud.leaveLeague(leagueId);
       if (!result.ok) {
         showToast(result.message);
         return;
@@ -3470,6 +3566,7 @@
         await window.PunditsCloud.waitForSession?.(5000);
         const session = await window.PunditsCloud.getSession?.();
         if (session) {
+          if (await handleVerifiedCodeRecovery()) return;
           await hydrateOnlineState({ source: window.PunditsCloud?.hasAuthRedirect?.() ? "authRedirect" : "remembered" });
           if (state.dashboard?.userId) {
             if (window.PunditsCloud?.hasAuthRedirect?.()) showToast("Signed in");
@@ -3628,6 +3725,30 @@
       }, result.ok ? 12000 : 3000);
     }
 
+    async function sendCodeRecovery() {
+      const button = document.getElementById("recoverCodeButton");
+      const email = document.getElementById("recoveryEmailInput").value.trim();
+      if (!email) {
+        showToast("Add your registered email first");
+        return;
+      }
+      if (!window.PunditsCloud?.isReady()) {
+        showToast("Online recovery is not ready.");
+        return;
+      }
+
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = "Sending...";
+      const result = await window.PunditsCloud.requestCodeRecovery(email);
+      showToast(result.message);
+      button.textContent = result.ok ? "Recovery email sent" : originalText;
+      window.setTimeout(() => {
+        button.disabled = false;
+        button.textContent = originalText;
+      }, result.ok ? 12000 : 3000);
+    }
+
     document.getElementById("returnSignInOnline").addEventListener("click", () => continueOrSendLogin("returnEmailInput", "returnSignInOnline"));
     document.querySelectorAll("[data-login-choice]").forEach(button => {
       button.addEventListener("click", () => setLoginChoice(button.dataset.loginChoice));
@@ -3635,6 +3756,7 @@
     document.getElementById("firstTimeEnter").addEventListener("click", enterFirstTimeUser);
     document.getElementById("continueWithCode").addEventListener("click", continueWithCreatedCode);
     document.getElementById("returnCodeEnter").addEventListener("click", enterWithAccessCode);
+    document.getElementById("recoverCodeButton").addEventListener("click", sendCodeRecovery);
     document.getElementById("returnCodeInput").addEventListener("input", event => {
       event.target.value = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
     });
@@ -3774,6 +3896,10 @@
 
     document.getElementById("createLeague").addEventListener("click", createLeagueCode);
     document.getElementById("joinLeague").addEventListener("click", joinLeague);
+    document.getElementById("saveProfileName").addEventListener("click", saveProfileName);
+    document.getElementById("profileNameInput").addEventListener("keydown", event => {
+      if (event.key === "Enter") saveProfileName();
+    });
     document.getElementById("goToMyLeagues").addEventListener("click", async () => {
       await loadDashboardData();
       goToSlide(9);

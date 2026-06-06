@@ -70,6 +70,10 @@
     );
   }
 
+  function isCodeRecovery() {
+    return new URL(window.location.href).searchParams.get("recover") === "code";
+  }
+
   function normalizeLeagueCode(value) {
     const raw = String(value || "").trim();
     const clean = raw.toUpperCase().replace(/\s+/g, "").replace(/[–—]/g, "-");
@@ -92,6 +96,29 @@
         ? "Too many login emails were sent. Wait a few minutes, then try again."
         : error.message
     };
+  }
+
+  async function requestCodeRecovery(email) {
+    if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const redirect = `${window.location.origin}${window.location.pathname}?recover=code`;
+    const { error } = await client.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: redirect }
+    });
+    if (!error) return { ok: true, message: "Check your email for the recovery link." };
+    const isRateLimit = error.message.toLowerCase().includes("rate limit");
+    return {
+      ok: false,
+      message: isRateLimit
+        ? "Too many emails were sent. Wait a few minutes, then try again."
+        : error.message
+    };
+  }
+
+  async function recoverPunditCode() {
+    if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const { data, error } = await client.rpc("recover_pundit_code");
+    return error ? { ok: false, message: error.message } : { ok: true, code: data };
   }
 
   async function signOut() {
@@ -247,6 +274,15 @@
     return error ? { ok: false, message: error.message } : { ok: true };
   }
 
+  async function leaveLeagueWithCode({ accessCode, leagueId }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "Choose a league first." };
+    const { data, error } = await client.rpc("leave_league_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId
+    });
+    return error ? { ok: false, message: error.message } : { ok: Boolean(data) };
+  }
+
   async function getLeagues() {
     const user = await getUser();
     if (!client || !user) return { ok: false, message: "Not signed in." };
@@ -257,13 +293,8 @@
       .eq("user_id", user.id);
 
     if (error) return { ok: false, message: error.message };
-    const { data: owned } = await client
-      .from("leagues")
-      .select("id,name,code,owner_id")
-      .eq("owner_id", user.id);
     const byId = new Map();
     (data || []).map(row => row.leagues).filter(Boolean).forEach(league => byId.set(league.id, league));
-    (owned || []).forEach(league => byId.set(league.id, league));
     return {
       ok: true,
       leagues: [...byId.values()]
@@ -423,7 +454,10 @@
     isReady,
     setupError,
     hasAuthRedirect,
+    isCodeRecovery,
     signIn,
+    requestCodeRecovery,
+    recoverPunditCode,
     signOut,
     getUser,
     getSession,
@@ -438,6 +472,7 @@
     createLeagueWithCode,
     joinLeagueWithCode,
     leaveLeague,
+    leaveLeagueWithCode,
     getLeagues,
     getLeaguesForCode,
     ensureStarterLeague,

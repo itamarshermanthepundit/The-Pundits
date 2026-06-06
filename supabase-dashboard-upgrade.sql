@@ -196,6 +196,38 @@ $$;
 
 grant execute on function public.get_profile_by_code(text) to anon, authenticated;
 
+create or replace function public.recover_pundit_code()
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  verified_email text := lower(auth.jwt() ->> 'email');
+  recovered_code text;
+begin
+  if verified_email is null or verified_email = '' then
+    raise exception 'Open the verified recovery link from your email.';
+  end if;
+
+  select p.access_code into recovered_code
+  from public.profiles p
+  where lower(p.email) = verified_email
+    and p.access_code is not null
+  order by p.created_at asc
+  limit 1;
+
+  if recovered_code is null then
+    raise exception 'No Pundits code was found for this email.';
+  end if;
+
+  return recovered_code;
+end;
+$$;
+
+revoke all on function public.recover_pundit_code() from public, anon;
+grant execute on function public.recover_pundit_code() to authenticated;
+
 create or replace function public.create_league_with_code(
   p_access_code text,
   p_email text,
@@ -293,13 +325,43 @@ begin
   return query
   select distinct l.id, l.name, l.code, l.owner_id
   from public.leagues l
-  left join public.league_members m on m.league_id = l.id
-  where l.owner_id = player_id or m.user_id = player_id
+  join public.league_members m on m.league_id = l.id
+  where m.user_id = player_id
   order by l.name;
 end;
 $$;
 
 grant execute on function public.get_leagues_for_code(text) to anon, authenticated;
+
+create or replace function public.leave_league_with_code(
+  p_access_code text,
+  p_league_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  player_id uuid;
+begin
+  select p.id into player_id
+  from public.profiles p
+  where upper(p.access_code) = upper(trim(p_access_code))
+  limit 1;
+
+  if player_id is null then
+    raise exception 'Pundit code not found.';
+  end if;
+
+  delete from public.league_members
+  where league_id = p_league_id and user_id = player_id;
+
+  return true;
+end;
+$$;
+
+grant execute on function public.leave_league_with_code(text, uuid) to anon, authenticated;
 
 create or replace function public.get_predictions_with_code(
   p_access_code text,
