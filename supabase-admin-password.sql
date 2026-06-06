@@ -63,6 +63,52 @@ begin
 end;
 $$;
 
+create or replace function public.admin_password_get_insights(p_token uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  champion_favorite jsonb;
+  scorer_favorite jsonb;
+  assister_favorite jsonb;
+begin
+  if not public.valid_pundits_admin_token(p_token) then raise exception 'Admin session expired.'; end if;
+
+  select jsonb_build_object('pick', champion, 'votes', count(*))
+  into champion_favorite
+  from public.award_predictions
+  where nullif(trim(champion), '') is not null
+  group by champion
+  order by count(*) desc, champion
+  limit 1;
+
+  select jsonb_build_object('pick', top_scorer, 'votes', count(*))
+  into scorer_favorite
+  from public.award_predictions
+  where nullif(trim(top_scorer), '') is not null
+  group by top_scorer
+  order by count(*) desc, top_scorer
+  limit 1;
+
+  select jsonb_build_object('pick', top_assister, 'votes', count(*))
+  into assister_favorite
+  from public.award_predictions
+  where nullif(trim(top_assister), '') is not null
+  group by top_assister
+  order by count(*) desc, top_assister
+  limit 1;
+
+  return jsonb_build_object(
+    'entries', (select count(*) from public.award_predictions),
+    'champion', champion_favorite,
+    'top_scorer', scorer_favorite,
+    'top_assister', assister_favorite
+  );
+end;
+$$;
+
 create or replace function public.admin_password_set_tournament_setting(
   p_token uuid,
   p_key text,
@@ -111,10 +157,12 @@ $$;
 revoke all on function public.valid_pundits_admin_token(uuid) from public;
 revoke all on function public.admin_password_login(text) from public;
 revoke all on function public.admin_password_get_stats(uuid) from public;
+revoke all on function public.admin_password_get_insights(uuid) from public;
 revoke all on function public.admin_password_set_tournament_setting(uuid, text, jsonb) from public;
 revoke all on function public.admin_password_save_result(uuid, text, text, jsonb) from public;
 
 grant execute on function public.admin_password_login(text) to anon, authenticated;
 grant execute on function public.admin_password_get_stats(uuid) to anon, authenticated;
+grant execute on function public.admin_password_get_insights(uuid) to anon, authenticated;
 grant execute on function public.admin_password_set_tournament_setting(uuid, text, jsonb) to anon, authenticated;
 grant execute on function public.admin_password_save_result(uuid, text, text, jsonb) to anon, authenticated;

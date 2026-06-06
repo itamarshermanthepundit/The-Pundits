@@ -161,6 +161,31 @@
     </section>
 
     <section class="panel admin-only" hidden>
+      <div class="row">
+        <div>
+          <h2>Prediction favorites</h2>
+          <p>The most popular Big Calls across every saved entry.</p>
+        </div>
+        <button id="refreshInsights" type="button">Refresh favorites</button>
+      </div>
+      <div class="control-grid">
+        <div class="control">
+          <strong>Champion</strong>
+          <span id="favoriteChampion">-</span>
+        </div>
+        <div class="control">
+          <strong>Top scorer</strong>
+          <span id="favoriteScorer">-</span>
+        </div>
+        <div class="control">
+          <strong>Top assister</strong>
+          <span id="favoriteAssister">-</span>
+        </div>
+      </div>
+      <div class="status" id="insightsStatus"></div>
+    </section>
+
+    <section class="panel admin-only" hidden>
       <h2>Tournament controls</h2>
       <div class="control-grid">
         <div class="control">
@@ -226,6 +251,7 @@
       document.querySelectorAll(".admin-only").forEach(panel => panel.hidden = false);
       setText("authStatus", "Admin controls unlocked.");
       await loadStats();
+      await loadInsights();
       await loadSettings();
     }
 
@@ -252,6 +278,22 @@
       setText("groupLockStatus", settings.group_picks_locked === true ? "Locked" : "Open");
       setText("bracketOpenStatus", settings.bracket_open === true ? "Open" : "Locked");
       setText("bracketLockStatus", settings.bracket_picks_locked === true ? "Locked" : "Open");
+    }
+
+    async function loadInsights() {
+      setText("insightsStatus", "Refreshing...");
+      const { data, error } = await client.rpc("admin_password_get_insights", { p_token: adminToken });
+      if (error) {
+        setText("insightsStatus", error.message);
+        return;
+      }
+      const favoriteText = favorite => favorite?.pick
+        ? `${favorite.pick} (${favorite.votes} ${favorite.votes === 1 ? "pick" : "picks"})`
+        : "No picks yet";
+      setText("favoriteChampion", favoriteText(data?.champion));
+      setText("favoriteScorer", favoriteText(data?.top_scorer));
+      setText("favoriteAssister", favoriteText(data?.top_assister));
+      setText("insightsStatus", `${data?.entries ?? 0} saved Big Calls entries`);
     }
 
     document.getElementById("adminSignIn").addEventListener("click", async () => {
@@ -290,6 +332,7 @@
     });
 
     document.getElementById("refreshStats").addEventListener("click", loadStats);
+    document.getElementById("refreshInsights").addEventListener("click", loadInsights);
 
     document.getElementById("saveResult").addEventListener("click", async () => {
       if (!client) {
