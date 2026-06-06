@@ -1410,6 +1410,35 @@
       transform: translateY(0);
     }
 
+    .rules-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(23, 16, 31, .72);
+      backdrop-filter: blur(8px);
+    }
+
+    .rules-modal[hidden] {
+      display: none;
+    }
+
+    .rules-card {
+      width: min(760px, 100%);
+      max-height: min(88vh, 820px);
+      overflow: auto;
+      padding: clamp(20px, 4vw, 34px);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .rules-card .points-list {
+      margin-top: 20px;
+    }
+
     @media (max-width: 1050px) {
       .groups-grid {
         grid-template-columns: repeat(3, minmax(230px, 1fr));
@@ -1668,16 +1697,13 @@
           </div>
         </div>
         <div class="progress" aria-label="Progress">
-          <button class="dot active" data-go="0">1</button>
-          <button class="dot" data-go="1">2</button>
-          <button class="dot" data-go="2">3</button>
-          <button class="dot" data-go="3">4</button>
-          <button class="dot" data-go="4">5</button>
-          <button class="dot" data-go="5">6</button>
-          <button class="dot" data-go="6">7</button>
-          <button class="dot" data-go="7">8</button>
-          <button class="dot" data-go="8">9</button>
-          <button class="dot" data-go="9">10</button>
+          <button class="dot active" data-go="3">1</button>
+          <button class="dot" data-go="4">2</button>
+          <button class="dot" data-go="5">3</button>
+          <button class="dot" data-go="6">4</button>
+          <button class="dot" data-go="7">5</button>
+          <button class="dot" data-go="8">6</button>
+          <button class="dot" data-go="9">7</button>
         </div>
       </div>
     </header>
@@ -1957,7 +1983,7 @@
       <section class="slide wide-slide" data-slide="3">
         <div class="wide-head">
           <div>
-            <p class="kicker" style="color: var(--grass-dark)">Step 4</p>
+            <p class="kicker" style="color: var(--grass-dark)">Step 1</p>
             <h2>Group stage</h2>
             <p>Rank every group from first to fourth. Every correct pick is worth 5 points.</p>
           </div>
@@ -1968,7 +1994,6 @@
         </div>
         <div class="groups-grid" id="groupsGrid"></div>
         <div class="actions">
-          <button class="button" data-back>Back</button>
           <button class="button primary" data-next>Continue</button>
         </div>
       </section>
@@ -1978,7 +2003,7 @@
           <div class="hero-panel photo-panel">
             <img class="slide-photo" src="assets/leo.webp" alt="Lionel Messi kissing the World Cup trophy">
             <div class="poster-overlay">
-              <p class="kicker">Step 5</p>
+              <p class="kicker">Step 2</p>
               <h2>Big calls.</h2>
               <p>Pick your champion, tournament top scorer, and top assist provider before the first match.</p>
             </div>
@@ -2036,7 +2061,7 @@
           <div class="hero-panel photo-panel">
             <img class="slide-photo" src="assets/iceland.jpg" alt="Football supporters celebrating in the stands">
             <div class="poster-overlay">
-            <p class="kicker">Step 6</p>
+            <p class="kicker">Step 3</p>
             <h2>Choose your league path.</h2>
             <p>Create your own table or jump into a friend's league.</p>
             </div>
@@ -2077,7 +2102,7 @@
           <div class="hero-panel photo-panel">
             <img class="slide-photo" src="assets/iceland.jpg" alt="Football supporters celebrating in the stands">
             <div class="poster-overlay">
-              <p class="kicker">Step 7</p>
+              <p class="kicker">Step 4</p>
               <h2>Create a league.</h2>
               <p>Make the code, send it out, and let the table talk begin.</p>
             </div>
@@ -2112,7 +2137,7 @@
           <div class="hero-panel photo-panel">
             <img class="slide-photo" src="assets/iceland.jpg" alt="Football supporters celebrating in the stands">
             <div class="poster-overlay">
-              <p class="kicker">Step 7</p>
+              <p class="kicker">Step 5</p>
               <h2>Join a league.</h2>
               <p>Enter the code and bring your ball knowledge into the room.</p>
             </div>
@@ -2141,7 +2166,7 @@
       <section class="slide wide-slide" data-slide="8">
         <div class="wide-head">
           <div>
-            <p class="kicker" style="color: var(--grass-dark)">Step 8</p>
+            <p class="kicker" style="color: var(--grass-dark)">Step 6</p>
             <h2>Round of 32 bracket</h2>
             <p>The real knockout bracket is locked until the group stage is finished. It opens on July 1, 2026.</p>
           </div>
@@ -2206,11 +2231,12 @@
       <section class="slide wide-slide" data-slide="9">
         <div class="wide-head">
           <div>
-            <p class="kicker" style="color: var(--grass-dark)">Step 9</p>
+            <p class="kicker" style="color: var(--grass-dark)">Step 7</p>
             <h2>My leagues</h2>
             <p>All the leagues you are part of live here. Every member can see who is in the room, while friend picks stay hidden until they unlock.</p>
           </div>
           <div class="actions">
+            <button class="button" id="openRules" type="button">Rules &amp; scoring</button>
             <button class="button" data-back>Back</button>
           </div>
         </div>
@@ -2253,6 +2279,37 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="rules-modal" id="rulesModal" hidden>
+    <section class="rules-card" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+      <div class="wide-head">
+        <div>
+          <p class="kicker" style="color: var(--grass-dark)">The format</p>
+          <h2 id="rulesTitle">Rules &amp; scoring</h2>
+          <p>Your group-stage score stays with you. After the groups finish, everyone gets a fresh chance to predict the real Round of 32 bracket.</p>
+        </div>
+        <button class="button" id="closeRules" type="button">Close</button>
+      </div>
+      <div class="points-list">
+        <article class="points-item">
+          <div class="points-number">5</div>
+          <div><h3>Correct group position</h3><p>Earn 5 points for every team placed in its correct group position.</p></div>
+        </article>
+        <article class="points-item">
+          <div class="points-number">20</div>
+          <div><h3>Big calls</h3><p>Champion, top scorer, and top assist provider are each worth 20 points.</p></div>
+        </article>
+        <article class="points-item">
+          <div class="points-number">5</div>
+          <div><h3>Knockout winner</h3><p>Earn 5 points for predicting the winning side in each Round of 32 match.</p></div>
+        </article>
+        <article class="points-item">
+          <div class="points-number">10</div>
+          <div><h3>Exact knockout score</h3><p>Earn 10 points for predicting an exact Round of 32 score.</p></div>
+        </article>
+      </div>
+    </section>
+  </div>
 
   <script src="supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -2729,9 +2786,7 @@
 
     function goToSlide(index) {
       document.getElementById("returningHome").classList.remove("active");
-      const lowestAllowedSlide = state.dashboard?.userId
-        ? (state.allowIntroAfterLogin ? 1 : 3)
-        : (state.skipIntroAfterCode ? 3 : (state.loginComplete ? 1 : 0));
+      const lowestAllowedSlide = state.dashboard?.userId || state.loginComplete ? 3 : 0;
       activeSlide = Math.max(lowestAllowedSlide, Math.min(9, index));
       document.querySelectorAll(".slide").forEach(slide => {
         slide.classList.toggle("active", Number(slide.dataset.slide) === activeSlide);
@@ -2913,10 +2968,10 @@
         return;
       }
       state.loginComplete = true;
-      state.skipIntroAfterCode = false;
+      state.skipIntroAfterCode = true;
       saveState("Welcome in");
       if (await processPendingInvite()) return;
-      goToSlide(1);
+      goToSlide(3);
     }
 
     async function enterWithAccessCode() {
@@ -3725,7 +3780,7 @@
       renderBonus();
       saveState();
       await loadDashboardData();
-      if (navigate) goToSlide(state.allowIntroAfterLogin ? 1 : 3);
+      if (navigate) goToSlide(3);
     }
 
     async function bootApp() {
@@ -3835,6 +3890,16 @@
 
     document.querySelectorAll("[data-dashboard-tab]").forEach(button => {
       button.addEventListener("click", () => showDashboardPage(button.dataset.dashboardTab));
+    });
+    const rulesModal = document.getElementById("rulesModal");
+    document.getElementById("openRules").addEventListener("click", () => {
+      rulesModal.hidden = false;
+    });
+    document.getElementById("closeRules").addEventListener("click", () => {
+      rulesModal.hidden = true;
+    });
+    rulesModal.addEventListener("click", event => {
+      if (event.target === rulesModal) rulesModal.hidden = true;
     });
     document.getElementById("editGroupPicks").addEventListener("click", () => {
       if (picksAreLocked()) {
