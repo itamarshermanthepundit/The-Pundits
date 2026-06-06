@@ -1157,6 +1157,29 @@
       color: var(--sky);
     }
 
+    .invite-notice {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      max-width: 1180px;
+      margin: 0 auto 14px;
+      padding: 14px;
+      border: 2px solid var(--grass);
+      border-radius: var(--radius);
+      background: white;
+      box-shadow: var(--shadow);
+    }
+
+    .invite-notice[hidden] {
+      display: none;
+    }
+
+    .invite-notice p {
+      margin: 3px 0 0;
+      color: var(--muted);
+    }
+
     .league-item strong {
       color: var(--ink);
     }
@@ -1443,6 +1466,11 @@
         flex: 1;
       }
 
+      .invite-notice {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
       main {
         padding: 12px 10px 116px;
       }
@@ -1655,6 +1683,13 @@
     </header>
 
     <main>
+      <div class="invite-notice" id="inviteNotice" hidden>
+        <div>
+          <strong>You have been invited to a Pundits league</strong>
+          <p>League code: <b id="inviteNoticeCode"></b></p>
+        </div>
+        <button class="button primary" id="acceptInviteButton" type="button">Join invited league</button>
+      </div>
       <section class="returning-home" id="returningHome">
         <div class="wide-head">
           <div>
@@ -2476,6 +2511,14 @@
       return fromUrl || normalizeLeagueCode(localStorage.getItem(inviteStoreKey));
     }
 
+    function renderInviteNotice() {
+      const code = pendingInviteCode();
+      const notice = document.getElementById("inviteNotice");
+      if (!notice) return;
+      notice.hidden = !code;
+      document.getElementById("inviteNoticeCode").textContent = code || "";
+    }
+
     function clearPendingInvite() {
       localStorage.removeItem(inviteStoreKey);
       const url = new URL(window.location.href);
@@ -2495,6 +2538,12 @@
 
     async function shareLeagueInvite(code) {
       const url = leagueInviteUrl(code);
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast("Invite link copied");
+      } catch {
+        // Native sharing below still provides the link on supported phones.
+      }
       if (navigator.share) {
         try {
           await navigator.share({
@@ -2519,17 +2568,31 @@
       const code = pendingInviteCode();
       if (!code || (!hasCodeLogin() && !state.dashboard?.userId)) return false;
 
-      clearPendingInvite();
-      document.getElementById("joinCodeInput").value = code;
-      await joinLeague();
-      const joined = (state.league.memberships || []).some(league => normalizeLeagueCode(league.code) === code);
+      const joined = await joinLeague(code);
       if (!joined) {
-        localStorage.setItem(inviteStoreKey, code);
+        renderInviteNotice();
+        showToast("Could not join automatically. Press Join invited league to try again.");
         return false;
       }
+      clearPendingInvite();
+      renderInviteNotice();
       goToSlide(9);
       showToast("League joined from invite");
       return true;
+    }
+
+    async function acceptPendingInvite() {
+      const code = pendingInviteCode();
+      if (!code) {
+        showToast("This invitation does not contain a league code");
+        return;
+      }
+      if (!hasCodeLogin() && !state.dashboard?.userId) {
+        goToSlide(0);
+        showToast("Log in or create an account, then press Join invited league");
+        return;
+      }
+      await processPendingInvite();
     }
 
     function codeProfilePayload() {
@@ -3183,16 +3246,17 @@
       saveState("League code created");
     }
 
-    async function joinLeague() {
-      const code = normalizeLeagueCode(document.getElementById("joinCodeInput").value);
+    async function joinLeague(invitedCode = "") {
+      const requestedCode = typeof invitedCode === "string" ? invitedCode : "";
+      const code = normalizeLeagueCode(requestedCode || document.getElementById("joinCodeInput").value);
       if (!code) {
         showToast("Add a league code first");
-        return;
+        return false;
       }
       document.getElementById("joinCodeInput").value = code;
       if (onlineSyncExpected() && !onlineSyncReady()) {
         showToast(window.PunditsCloud?.setupError?.() || "Online sync is not ready. Refresh after uploading the latest app.");
-        return;
+        return false;
       }
 
       if (window.PunditsCloud?.isReady()) {
@@ -3211,12 +3275,12 @@
             await hydrateOnlineState({ navigate: false });
             await loadDashboardData();
             saveState("League joined online");
-            return;
+            return true;
           }
           showToast(result.message);
-          return;
+          return false;
         }
-        if (!hasCodeLogin()) return;
+        if (!hasCodeLogin()) return false;
         const result = await window.PunditsCloud.joinLeagueWithCode({
           ...codeProfilePayload(),
           code
@@ -3232,16 +3296,17 @@
           await savePredictionsOnlineSilently();
           await loadDashboardData();
           saveState("League joined online");
-          return;
+          return true;
         }
         showToast(result.message);
-        return;
+        return false;
       }
 
       state.league.joined = code;
       addLeagueMembership("Joined league", code, "Joined");
       renderLeague();
       saveState("League joined");
+      return true;
     }
 
     function addLeagueMembership(name, code, status, id = "") {
@@ -3667,6 +3732,7 @@
       setupGroupInteractions();
       renderBonus();
       renderLeague();
+      renderInviteNotice();
       if (window.PunditsCloud?.isReady()) {
         await window.PunditsCloud.waitForSession?.(5000);
         const session = await window.PunditsCloud.getSession?.();
@@ -3866,6 +3932,7 @@
     document.getElementById("continueWithCode").addEventListener("click", continueWithCreatedCode);
     document.getElementById("returnCodeEnter").addEventListener("click", enterWithAccessCode);
     document.getElementById("recoverCodeButton").addEventListener("click", sendCodeRecovery);
+    document.getElementById("acceptInviteButton").addEventListener("click", acceptPendingInvite);
     document.getElementById("returnCodeInput").addEventListener("input", event => {
       event.target.value = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
     });
