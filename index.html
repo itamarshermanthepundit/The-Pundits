@@ -1153,6 +1153,10 @@
       font-weight: 900;
     }
 
+    .mini-button.share-button {
+      color: var(--sky);
+    }
+
     .league-item strong {
       color: var(--ink);
     }
@@ -2360,6 +2364,7 @@
 
     const storeKey = "wc26-slide-prediction-game";
     const codeStoreKey = "pundits-access-codes";
+    const inviteStoreKey = "pundits-pending-league-invite";
     const loginLinkStoreKey = "pundits-login-links-sent";
     const loginLinkReuseMs = 23 * 60 * 60 * 1000;
     const pickLockDeadline = new Date("2026-06-11T22:00:00+03:00");
@@ -2448,6 +2453,69 @@
       const digits = clean.match(/\d{4}$/)?.[0];
       if (!digits) return raw;
       return `WC26-${digits}`;
+    }
+
+    function pendingInviteCode() {
+      const url = new URL(window.location.href);
+      const fromUrl = normalizeLeagueCode(url.searchParams.get("join"));
+      if (fromUrl) localStorage.setItem(inviteStoreKey, fromUrl);
+      return fromUrl || normalizeLeagueCode(localStorage.getItem(inviteStoreKey));
+    }
+
+    function clearPendingInvite() {
+      localStorage.removeItem(inviteStoreKey);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("join");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+
+    function leagueInviteUrl(code) {
+      const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+      const base = isLocal
+        ? "https://mellifluous-travesseiro-ee827c.netlify.app/"
+        : `${window.location.origin}${window.location.pathname}`;
+      const url = new URL(base);
+      url.searchParams.set("join", normalizeLeagueCode(code));
+      return url.toString();
+    }
+
+    async function shareLeagueInvite(code) {
+      const url = leagueInviteUrl(code);
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Join my Pundits league",
+            text: "Join my league on The Pundits and prove your ball knowledge.",
+            url
+          });
+          return;
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast("League invite link copied");
+      } catch {
+        window.prompt("Copy this league invite link", url);
+      }
+    }
+
+    async function processPendingInvite() {
+      const code = pendingInviteCode();
+      if (!code || (!hasCodeLogin() && !state.dashboard?.userId)) return false;
+
+      clearPendingInvite();
+      document.getElementById("joinCodeInput").value = code;
+      await joinLeague();
+      const joined = (state.league.memberships || []).some(league => normalizeLeagueCode(league.code) === code);
+      if (!joined) {
+        localStorage.setItem(inviteStoreKey, code);
+        return false;
+      }
+      goToSlide(9);
+      showToast("League joined from invite");
+      return true;
     }
 
     function codeProfilePayload() {
@@ -2711,6 +2779,7 @@
       renderLeague();
       saveState();
       window.history.replaceState({}, "", window.location.pathname);
+      if (await processPendingInvite()) return true;
       goToSlide(3);
       showToast(`Code recovered: ${recovered.code}. It is now saved on this device.`);
       return true;
@@ -2745,7 +2814,7 @@
       saveState("Code created");
     }
 
-    function continueWithCreatedCode() {
+    async function continueWithCreatedCode() {
       if (!state.login.code) {
         showToast("Create your code first");
         return;
@@ -2753,6 +2822,7 @@
       state.loginComplete = true;
       state.skipIntroAfterCode = false;
       saveState("Welcome in");
+      if (await processPendingInvite()) return;
       goToSlide(1);
     }
 
@@ -2788,6 +2858,7 @@
       await syncCodeProfileOnline();
       await hydrateCodeLeagues();
       saveState("Welcome back");
+      if (await processPendingInvite()) return;
       goToSlide(3);
     }
 
@@ -3175,6 +3246,7 @@
           <span class="league-info"><strong>${escapeHtml(league.name)}</strong> ${escapeHtml(league.status)}</span>
           <span class="league-tools">
             <span>${escapeHtml(league.code)}</span>
+            <button class="mini-button share-button" type="button" data-share-league>Share invite</button>
             <button class="mini-button" type="button" data-leave-league>Leave</button>
           </span>
         </div>
@@ -3557,6 +3629,7 @@
     }
 
     async function bootApp() {
+      const invitedCode = pendingInviteCode();
       renderLogin();
       renderGroups();
       setupGroupInteractions();
@@ -3569,6 +3642,7 @@
           if (await handleVerifiedCodeRecovery()) return;
           await hydrateOnlineState({ source: window.PunditsCloud?.hasAuthRedirect?.() ? "authRedirect" : "remembered" });
           if (state.dashboard?.userId) {
+            if (await processPendingInvite()) return;
             if (window.PunditsCloud?.hasAuthRedirect?.()) showToast("Signed in");
             return;
           }
@@ -3577,6 +3651,7 @@
       if (window.PunditsCloud?.hasAuthRedirect?.()) {
         await hydrateOnlineState({ source: "authRedirect" });
         if (state.dashboard?.userId) {
+          if (await processPendingInvite()) return;
           showToast("Signed in");
           return;
         }
@@ -3586,6 +3661,7 @@
         state.allowIntroAfterLogin = false;
         state.skipIntroAfterCode = true;
         await hydrateCodeLeagues();
+        if (await processPendingInvite()) return;
         goToSlide(3);
         showToast("Welcome back");
         return;
@@ -3595,6 +3671,7 @@
       state.allowIntroAfterLogin = false;
       state.skipIntroAfterCode = false;
       goToSlide(0);
+      if (invitedCode) showToast("Log in or create an account to join the invited league");
     }
 
     async function hydratePredictions(leagueId) {
@@ -3787,6 +3864,12 @@
       saveState("League selected");
     });
     document.addEventListener("click", event => {
+      const shareButton = event.target.closest("[data-share-league]");
+      if (shareButton) {
+        const leagueRow = shareButton.closest("[data-league-code]");
+        shareLeagueInvite(leagueRow?.dataset.leagueCode);
+        return;
+      }
       const leaveButton = event.target.closest("[data-leave-league]");
       if (!leaveButton) return;
       const leagueRow = leaveButton.closest("[data-league-id], [data-league-code]");
