@@ -100,6 +100,12 @@
     .control strong {
       font-size: 1.05rem;
     }
+    .stat-number {
+      color: #6500ef;
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      font-weight: 950;
+      line-height: 1;
+    }
     .control button {
       background: #17101f;
     }
@@ -127,6 +133,31 @@
       </label>
       <button id="adminSignIn">Send login link</button>
       <div class="status" id="authStatus"></div>
+    </section>
+
+    <section class="panel admin-only" hidden>
+      <div class="row">
+        <div>
+          <h2>App activity</h2>
+          <p>Live totals across The Pundits.</p>
+        </div>
+        <button id="refreshStats" type="button">Refresh totals</button>
+      </div>
+      <div class="control-grid">
+        <div class="control">
+          <strong>Registered users</strong>
+          <span class="stat-number" id="usersCount">-</span>
+        </div>
+        <div class="control">
+          <strong>Leagues</strong>
+          <span class="stat-number" id="leaguesCount">-</span>
+        </div>
+        <div class="control">
+          <strong>League memberships</strong>
+          <span class="stat-number" id="membershipsCount">-</span>
+        </div>
+      </div>
+      <div class="status" id="statsStatus"></div>
     </section>
 
     <section class="panel admin-only" hidden>
@@ -207,7 +238,21 @@
       await ensureAdminProfile(user);
       document.querySelectorAll(".admin-only").forEach(panel => panel.hidden = false);
       setText("authStatus", `Admin signed in as ${user.email}`);
+      await loadStats();
       await loadSettings();
+    }
+
+    async function loadStats() {
+      setText("statsStatus", "Refreshing...");
+      const { data, error } = await client.rpc("get_admin_app_stats");
+      if (error) {
+        setText("statsStatus", error.message);
+        return;
+      }
+      setText("usersCount", data?.users ?? 0);
+      setText("leaguesCount", data?.leagues ?? 0);
+      setText("membershipsCount", data?.memberships ?? 0);
+      setText("statsStatus", `Updated ${new Date().toLocaleTimeString()}`);
     }
 
     async function loadSettings() {
@@ -247,6 +292,8 @@
         if (!error) await loadSettings();
       });
     });
+
+    document.getElementById("refreshStats").addEventListener("click", loadStats);
 
     document.getElementById("saveResult").addEventListener("click", async () => {
       if (!client) {

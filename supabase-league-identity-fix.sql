@@ -183,3 +183,25 @@ end;
 $$;
 
 grant execute on function public.upsert_code_profile(text, text, text) to anon, authenticated;
+
+create or replace function public.get_admin_app_stats()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if lower(coalesce(auth.jwt()->>'email', '')) <> 'itamarsherman@gmail.com' then
+    raise exception 'Admin access required.';
+  end if;
+
+  return jsonb_build_object(
+    'users', (select count(*) from public.profiles),
+    'leagues', (select count(*) from public.leagues),
+    'memberships', (select count(*) from public.league_members)
+  );
+end;
+$$;
+
+revoke all on function public.get_admin_app_stats() from public, anon;
+grant execute on function public.get_admin_app_stats() to authenticated;
