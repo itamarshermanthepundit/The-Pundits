@@ -105,7 +105,7 @@
       email,
       options: { emailRedirectTo: redirect }
     });
-    if (!error) return { ok: true, message: "Check your email for the recovery link." };
+    if (!error) return { ok: true, message: "Recovery email sent. Open its secure link to reveal and save your permanent Pundits code." };
     const isRateLimit = error.message.toLowerCase().includes("rate limit");
     return {
       ok: false,

@@ -1716,6 +1716,13 @@
         </div>
         <button class="button primary" id="acceptInviteButton" type="button">Join invited league</button>
       </div>
+      <div class="invite-notice" id="recoveredCodeNotice" hidden>
+        <div>
+          <strong>Your permanent Pundits code</strong>
+          <p>Keep this code for future logins: <b id="recoveredCodeNoticeValue"></b></p>
+        </div>
+        <button class="button primary" id="dismissRecoveredCode" type="button">Got it</button>
+      </div>
       <section class="returning-home" id="returningHome">
         <div class="wide-head">
           <div>
@@ -1863,10 +1870,11 @@
                   Forgot your code?
                   <input id="recoveryEmailInput" type="email" placeholder="Enter your registered email" autocomplete="email">
                 </label>
+                <p class="phone-note">We will email a secure recovery link. Open it and your permanent code will appear and be saved on that device.</p>
               </div>
               <div class="actions">
                 <button class="button" type="button" data-login-choice="choice">Back</button>
-                <button class="button" id="recoverCodeButton" type="button">Email my code</button>
+                <button class="button" id="recoverCodeButton" type="button">Send code recovery email</button>
                 <button class="button primary" id="returnCodeEnter" type="button">Enter app</button>
               </div>
             </div>
@@ -2956,6 +2964,8 @@
       window.history.replaceState({}, "", window.location.pathname);
       if (await processPendingInvite()) return true;
       goToSlide(3);
+      document.getElementById("recoveredCodeNoticeValue").textContent = recovered.code;
+      document.getElementById("recoveredCodeNotice").hidden = false;
       showToast(`Code recovered: ${recovered.code}. It is now saved on this device.`);
       return true;
     }
@@ -4044,7 +4054,7 @@
       button.textContent = "Sending...";
       const result = await window.PunditsCloud.requestCodeRecovery(email);
       showToast(result.message);
-      button.textContent = result.ok ? "Recovery email sent" : originalText;
+      button.textContent = result.ok ? "Open the email to reveal code" : originalText;
       window.setTimeout(() => {
         button.disabled = false;
         button.textContent = originalText;
@@ -4059,6 +4069,9 @@
     document.getElementById("continueWithCode").addEventListener("click", continueWithCreatedCode);
     document.getElementById("returnCodeEnter").addEventListener("click", enterWithAccessCode);
     document.getElementById("recoverCodeButton").addEventListener("click", sendCodeRecovery);
+    document.getElementById("dismissRecoveredCode").addEventListener("click", () => {
+      document.getElementById("recoveredCodeNotice").hidden = true;
+    });
     document.getElementById("acceptInviteButton").addEventListener("click", acceptPendingInvite);
     document.getElementById("returnCodeInput").addEventListener("input", event => {
       event.target.value = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);

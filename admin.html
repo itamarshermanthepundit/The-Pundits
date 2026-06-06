@@ -128,10 +128,10 @@
     <section class="panel">
       <h2>Sign in</h2>
       <label>
-        Admin email
-        <input id="adminEmail" type="email" value="itamarsherman@gmail.com" readonly>
+        Six-digit admin password
+        <input id="adminPassword" type="password" inputmode="numeric" maxlength="6" placeholder="Enter password" autocomplete="current-password">
       </label>
-      <button id="adminSignIn">Send login link</button>
+      <button id="adminSignIn">Open admin controls</button>
       <div class="status" id="authStatus"></div>
     </section>
 
@@ -211,40 +211,27 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="cloud.js"></script>
   <script>
-    const ADMIN_EMAIL = "itamarsherman@gmail.com";
     const config = window.PUNDITS_SUPABASE;
     const client = config?.url && config?.anonKey && window.supabase
       ? window.supabase.createClient(config.url, config.anonKey)
       : null;
+    let adminToken = "";
 
     function setText(id, text) {
       document.getElementById(id).textContent = text;
     }
 
-    async function ensureAdminProfile(user) {
-      return client.rpc("sync_authenticated_profile", { p_squad_name: null });
-    }
-
     async function loadAdmin() {
-      if (!client) return;
-      const { data } = await client.auth.getUser();
-      const user = data.user;
-      if (!user) return;
-      if (user.email?.toLowerCase() !== ADMIN_EMAIL) {
-        setText("authStatus", "This account is not the Pundits admin.");
-        await client.auth.signOut();
-        return;
-      }
-      await ensureAdminProfile(user);
+      if (!client || !adminToken) return;
       document.querySelectorAll(".admin-only").forEach(panel => panel.hidden = false);
-      setText("authStatus", `Admin signed in as ${user.email}`);
+      setText("authStatus", "Admin controls unlocked.");
       await loadStats();
       await loadSettings();
     }
 
     async function loadStats() {
       setText("statsStatus", "Refreshing...");
-      const { data, error } = await client.rpc("get_admin_app_stats", { p_access_code: null });
+      const { data, error } = await client.rpc("admin_password_get_stats", { p_token: adminToken });
       if (error) {
         setText("statsStatus", error.message);
         return;
@@ -272,19 +259,28 @@
         setText("authStatus", "Supabase is not configured yet.");
         return;
       }
-      const email = document.getElementById("adminEmail").value.trim();
-      const { error } = await client.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: window.location.href }
-      });
-      setText("authStatus", error ? error.message : "Check your email for the login link.");
+      const password = document.getElementById("adminPassword").value.trim();
+      if (!/^\d{6}$/.test(password)) {
+        setText("authStatus", "Enter the six-digit password.");
+        return;
+      }
+      setText("authStatus", "Checking password...");
+      const { data, error } = await client.rpc("admin_password_login", { p_password: password });
+      document.getElementById("adminPassword").value = "";
+      if (error || !data) {
+        setText("authStatus", error?.message || "Password is incorrect.");
+        return;
+      }
+      adminToken = data;
+      await loadAdmin();
     });
 
     document.querySelectorAll("[data-setting]").forEach(button => {
       button.addEventListener("click", async () => {
         const confirmed = window.confirm(`Confirm: ${button.textContent}? Player predictions will remain saved.`);
         if (!confirmed) return;
-        const { error } = await client.rpc("admin_set_tournament_setting", {
+        const { error } = await client.rpc("admin_password_set_tournament_setting", {
+          p_token: adminToken,
           p_key: button.dataset.setting,
           p_value: button.dataset.value === "true"
         });
@@ -301,9 +297,8 @@
         return;
       }
 
-      const { data: userData } = await client.auth.getUser();
-      if (!userData.user) {
-        setText("saveStatus", "Sign in first.");
+      if (!adminToken) {
+        setText("saveStatus", "Enter the admin password first.");
         return;
       }
 
@@ -315,17 +310,22 @@
         return;
       }
 
-      const { error } = await client.from("official_results").upsert({
-        result_type: document.getElementById("resultType").value,
-        result_key: document.getElementById("resultKey").value.trim(),
-        value,
-        updated_by: userData.user.id
-      }, { onConflict: "result_type,result_key" });
+      const { error } = await client.rpc("admin_password_save_result", {
+        p_token: adminToken,
+        p_result_type: document.getElementById("resultType").value,
+        p_result_key: document.getElementById("resultKey").value.trim(),
+        p_value: value
+      });
 
       setText("saveStatus", error ? error.message : "Result saved.");
     });
 
-    loadAdmin();
+    document.getElementById("adminPassword").addEventListener("input", event => {
+      event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
+    });
+    document.getElementById("adminPassword").addEventListener("keydown", event => {
+      if (event.key === "Enter") document.getElementById("adminSignIn").click();
+    });
   </script>
 </body>
 </html>
