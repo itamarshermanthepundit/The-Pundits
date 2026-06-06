@@ -81,8 +81,34 @@
       color: #6e6278;
       font-weight: 800;
     }
+    .admin-only[hidden] {
+      display: none;
+    }
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .control {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid #eadff0;
+      border-radius: 8px;
+      background: #f7f0fb;
+    }
+    .control strong {
+      font-size: 1.05rem;
+    }
+    .control button {
+      background: #17101f;
+    }
+    .control button.danger {
+      background: #b34538;
+    }
     @media (max-width: 640px) {
-      .row {
+      .row,
+      .control-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -91,19 +117,41 @@
 <body>
   <main>
     <h1>The Pundits Admin</h1>
-    <p>Use this page later to enter official results. Only users marked as admin in Supabase can save results.</p>
+    <p>This protected control room locks predictions, opens the Last 32, and publishes official results without deleting player picks.</p>
 
     <section class="panel">
       <h2>Sign in</h2>
       <label>
         Admin email
-        <input id="adminEmail" type="email" placeholder="you@example.com">
+        <input id="adminEmail" type="email" value="itamarsherman@gmail.com" readonly>
       </label>
       <button id="adminSignIn">Send login link</button>
       <div class="status" id="authStatus"></div>
     </section>
 
-    <section class="panel">
+    <section class="panel admin-only" hidden>
+      <h2>Tournament controls</h2>
+      <div class="control-grid">
+        <div class="control">
+          <strong>Group-stage picks</strong>
+          <span id="groupLockStatus">Checking...</span>
+          <button class="danger" data-setting="group_picks_locked" data-value="true">Lock picks</button>
+        </div>
+        <div class="control">
+          <strong>Last 32 bracket</strong>
+          <span id="bracketOpenStatus">Checking...</span>
+          <button data-setting="bracket_open" data-value="true">Open Last 32</button>
+        </div>
+        <div class="control">
+          <strong>Last 32 picks</strong>
+          <span id="bracketLockStatus">Checking...</span>
+          <button class="danger" data-setting="bracket_picks_locked" data-value="true">Lock bracket picks</button>
+        </div>
+      </div>
+      <div class="status" id="controlStatus"></div>
+    </section>
+
+    <section class="panel admin-only" hidden>
       <h2>Official result</h2>
       <div class="row">
         <label>
@@ -132,6 +180,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="cloud.js"></script>
   <script>
+    const ADMIN_EMAIL = "itamarsherman@gmail.com";
     const config = window.PUNDITS_SUPABASE;
     const client = config?.url && config?.anonKey && window.supabase
       ? window.supabase.createClient(config.url, config.anonKey)
@@ -139,6 +188,42 @@
 
     function setText(id, text) {
       document.getElementById(id).textContent = text;
+    }
+
+    async function ensureAdminProfile(user) {
+      return client.from("profiles").upsert({
+        id: user.id,
+        email: user.email,
+        squad_name: "The Pundits Admin"
+      }, { onConflict: "id" });
+    }
+
+    async function loadAdmin() {
+      if (!client) return;
+      const { data } = await client.auth.getUser();
+      const user = data.user;
+      if (!user) return;
+      if (user.email?.toLowerCase() !== ADMIN_EMAIL) {
+        setText("authStatus", "This account is not the Pundits admin.");
+        await client.auth.signOut();
+        return;
+      }
+      await ensureAdminProfile(user);
+      document.querySelectorAll(".admin-only").forEach(panel => panel.hidden = false);
+      setText("authStatus", `Admin signed in as ${user.email}`);
+      await loadSettings();
+    }
+
+    async function loadSettings() {
+      const { data, error } = await client.from("official_results").select("*").eq("result_type", "setting");
+      if (error) {
+        setText("controlStatus", error.message);
+        return;
+      }
+      const settings = Object.fromEntries((data || []).map(row => [row.result_key, row.value]));
+      setText("groupLockStatus", settings.group_picks_locked === true ? "Locked" : "Open");
+      setText("bracketOpenStatus", settings.bracket_open === true ? "Open" : "Locked");
+      setText("bracketLockStatus", settings.bracket_picks_locked === true ? "Locked" : "Open");
     }
 
     document.getElementById("adminSignIn").addEventListener("click", async () => {
@@ -152,6 +237,19 @@
         options: { emailRedirectTo: window.location.href }
       });
       setText("authStatus", error ? error.message : "Check your email for the login link.");
+    });
+
+    document.querySelectorAll("[data-setting]").forEach(button => {
+      button.addEventListener("click", async () => {
+        const confirmed = window.confirm(`Confirm: ${button.textContent}? Player predictions will remain saved.`);
+        if (!confirmed) return;
+        const { error } = await client.rpc("admin_set_tournament_setting", {
+          p_key: button.dataset.setting,
+          p_value: button.dataset.value === "true"
+        });
+        setText("controlStatus", error ? error.message : "Tournament setting updated.");
+        if (!error) await loadSettings();
+      });
     });
 
     document.getElementById("saveResult").addEventListener("click", async () => {
@@ -183,6 +281,8 @@
 
       setText("saveStatus", error ? error.message : "Result saved.");
     });
+
+    loadAdmin();
   </script>
 </body>
 </html>

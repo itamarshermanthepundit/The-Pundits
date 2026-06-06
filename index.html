@@ -1429,6 +1429,20 @@
         background-size: 22px 22px;
       }
 
+      .league-item {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .league-tools {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+
+      .league-tools .mini-button {
+        flex: 1;
+      }
+
       main {
         padding: 12px 10px 116px;
       }
@@ -1727,7 +1741,7 @@
         <div class="dashboard-grid dashboard-page" data-dashboard-page="round32">
           <section class="dashboard-panel">
             <h3>Round of 32</h3>
-            <p>The knockout page stays locked until the group stage is finished.</p>
+            <p id="dashboardBracketMessage">The knockout page stays locked until the group stage is finished.</p>
             <div class="mini-bracket" aria-label="Locked Round of 32 preview">
               <div class="mini-bracket-row"><div class="mini-slot">Qualifier</div><div class="mini-slot">vs</div><div class="mini-slot">Qualifier</div></div>
               <div class="mini-bracket-row"><div class="mini-slot">Qualifier</div><div class="mini-slot">vs</div><div class="mini-slot">Qualifier</div></div>
@@ -1736,7 +1750,7 @@
           </section>
           <section class="dashboard-panel">
             <h3>Status</h3>
-            <div class="locked-stamp" style="position: static; min-height: 160px; font-size: clamp(2rem, 7vw, 4rem)">
+            <div class="locked-stamp" id="dashboardBracketLock" style="position: static; min-height: 160px; font-size: clamp(2rem, 7vw, 4rem)">
               <div>
                 <div class="lock-icon">🔒</div>
                 LOCKED
@@ -2144,7 +2158,7 @@
               <div class="bracket-pair"><div class="bracket-team">Qualifier 31</div><div class="bracket-team">Qualifier 32</div></div>
             </div>
           </div>
-          <div class="locked-stamp">
+          <div class="locked-stamp" id="slideBracketLock">
             <div>
               <div class="lock-icon">🔒</div>
               LOCKED
@@ -2687,13 +2701,30 @@
     }
 
     function picksAreLocked() {
-      return Boolean(state.dashboard?.lockedAt) || Date.now() >= pickLockDeadline.getTime();
+      const adminLocked = officialResultMap("setting").group_picks_locked === true;
+      return adminLocked || Boolean(state.dashboard?.lockedAt) || Date.now() >= pickLockDeadline.getTime();
     }
 
     function lockText() {
+      if (officialResultMap("setting").group_picks_locked === true) return "Locked by tournament admin";
       if (state.dashboard?.lockedAt) return `Locked on ${new Date(state.dashboard.lockedAt).toLocaleDateString()}`;
       if (Date.now() >= pickLockDeadline.getTime()) return "Locked by deadline";
       return "Picks open until June 11";
+    }
+
+    function renderTournamentState() {
+      const settings = officialResultMap("setting");
+      const bracketOpen = settings.bracket_open === true;
+      const dashboardLock = document.getElementById("dashboardBracketLock");
+      const slideLock = document.getElementById("slideBracketLock");
+      const message = document.getElementById("dashboardBracketMessage");
+      if (dashboardLock) dashboardLock.style.display = bracketOpen ? "none" : "grid";
+      if (slideLock) slideLock.style.display = bracketOpen ? "none" : "grid";
+      if (message) {
+        message.textContent = bracketOpen
+          ? "The real Last 32 bracket is open for knockout predictions."
+          : "The knockout page stays locked until the group stage is finished.";
+      }
     }
 
     function setPickControlsLocked() {
@@ -3307,6 +3338,7 @@
       document.getElementById("lockMyPicks").disabled = picksAreLocked();
       document.getElementById("editGroupPicks").disabled = picksAreLocked();
       document.getElementById("editBigCalls").disabled = picksAreLocked();
+      renderTournamentState();
       renderDashboardGroupSummary();
 
       const leagues = state.league.memberships || [];
