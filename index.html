@@ -1849,32 +1849,31 @@
                   <input id="squadInput" placeholder="The Last-Minute Winners" autocomplete="organization">
                 </label>
               </div>
-              <div class="user-code-card" id="createdCodeCard">
+              <div class="user-code-card" id="createdCodeCard" hidden>
                 <span>Your permanent code</span>
                 <strong id="createdCodeText"></strong>
               </div>
               <div class="actions">
                 <button class="button" type="button" data-login-choice="choice">Back</button>
-                <button class="button primary" id="firstTimeEnter" type="button">Create code</button>
+                <button class="button primary" id="firstTimeEnter" type="button">Enter app</button>
                 <button class="button primary" id="continueWithCode" type="button" style="display: none;">Continue</button>
               </div>
             </div>
             <div class="login-code-panel" id="returningCodePanel">
-              <h3>Enter your code</h3>
+              <h3>Welcome back</h3>
               <div class="form-grid">
                 <label>
-                  Pundit code
-                  <input id="returnCodeInput" maxlength="4" placeholder="ABCD" autocomplete="one-time-code">
+                  Email
+                  <input id="returnCodeInput" type="email" placeholder="you@example.com" autocomplete="email">
                 </label>
-                <label>
+                <label hidden>
                   Forgot your code?
                   <input id="recoveryEmailInput" type="email" placeholder="Enter your registered email" autocomplete="email">
                 </label>
-                <p class="phone-note">We will email a secure recovery link. Open it and your permanent code will appear and be saved on that device.</p>
               </div>
               <div class="actions">
                 <button class="button" type="button" data-login-choice="choice">Back</button>
-                <button class="button" id="recoverCodeButton" type="button">Send code recovery email</button>
+                <button class="button" id="recoverCodeButton" type="button" hidden>Send code recovery email</button>
                 <button class="button primary" id="returnCodeEnter" type="button">Enter app</button>
               </div>
             </div>
@@ -2915,10 +2914,10 @@
       document.getElementById("squadInput").value = state.login.squad || "";
       document.getElementById("returnEmailInput").value = state.login.email || "";
       document.getElementById("recoveryEmailInput").value = state.login.email || "";
-      document.getElementById("returnCodeInput").value = "";
+      document.getElementById("returnCodeInput").value = state.login.email || "";
       document.getElementById("createdCodeText").textContent = state.login.code || "";
-      document.getElementById("createdCodeCard").classList.toggle("active", Boolean(state.login.code));
-      document.getElementById("continueWithCode").style.display = state.login.code ? "inline-flex" : "none";
+      document.getElementById("createdCodeCard").classList.remove("active");
+      document.getElementById("continueWithCode").style.display = "none";
       renderBrand();
     }
 
@@ -2977,26 +2976,24 @@
         showToast("Add email and squad name");
         return;
       }
-      const code = rememberAccessCode();
+      rememberAccessCode();
       state.pendingFirstTimeLogin = false;
       state.allowIntroAfterLogin = true;
       state.skipIntroAfterCode = false;
       state.loginComplete = true;
-      document.getElementById("createdCodeText").textContent = code;
-      document.getElementById("createdCodeCard").classList.add("active");
-      document.getElementById("continueWithCode").style.display = "inline-flex";
       if (window.PunditsCloud?.isReady()) {
         const user = await window.PunditsCloud.getUser();
         if (user) {
           await hydrateOnlineState({ source: "firstTime" });
-          saveState("Code created");
+          saveState("Welcome in");
           return;
         }
         await syncCodeProfileOnline();
-        saveState("Code created");
-        return;
+        await hydrateCodeLeagues();
       }
-      saveState("Code created");
+      saveState("Welcome in");
+      if (await processPendingInvite()) return;
+      goToSlide(3);
     }
 
     async function continueWithCreatedCode() {
@@ -3012,22 +3009,23 @@
     }
 
     async function enterWithAccessCode() {
-      const code = document.getElementById("returnCodeInput").value.trim().toUpperCase();
-      let profile = accessCodes()[code];
-      if (!profile && window.PunditsCloud?.isReady()) {
-        const result = await window.PunditsCloud.getProfileByCode(code);
+      const email = document.getElementById("returnCodeInput").value.trim().toLowerCase();
+      if (!email) {
+        showToast("Enter your email");
+        return;
+      }
+      let profile = Object.entries(accessCodes()).find(([, saved]) => saved.email?.toLowerCase() === email);
+      let code = profile?.[0] || "";
+      profile = profile?.[1] || null;
+      if (window.PunditsCloud?.isReady()) {
+        const result = await window.PunditsCloud.getProfileByEmail(email);
         if (result.ok && result.profile) {
-          profile = {
-            email: result.profile.email,
-            squad: result.profile.squad_name
-          };
-          const codes = accessCodes();
-          codes[code] = profile;
-          saveAccessCodes(codes);
+          code = result.profile.access_code || code || generateAccessCode();
+          profile = { email: result.profile.email, squad: result.profile.squad_name };
         }
       }
-      if (!profile) {
-        showToast("Code not found");
+      if (!profile || !code) {
+        showToast("No account found for that email");
         return;
       }
       applyCodeProfile(profile);
@@ -4073,9 +4071,6 @@
       document.getElementById("recoveredCodeNotice").hidden = true;
     });
     document.getElementById("acceptInviteButton").addEventListener("click", acceptPendingInvite);
-    document.getElementById("returnCodeInput").addEventListener("input", event => {
-      event.target.value = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
-    });
     document.getElementById("dashboardLeagueSelect").addEventListener("change", async event => {
       const league = (state.league.memberships || []).find(item => item.id === event.target.value);
       if (!league) return;

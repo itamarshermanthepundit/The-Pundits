@@ -168,6 +168,12 @@
     return error ? { ok: false, message: error.message } : { ok: true, profile: data };
   }
 
+  async function getProfileByEmail(email) {
+    if (!client || !email) return { ok: false, message: "Enter your email first." };
+    const { data, error } = await client.rpc("get_profile_by_email", { p_email: email });
+    return error ? { ok: false, message: error.message } : { ok: true, profile: data };
+  }
+
   async function createLeague(name) {
     const user = await getUser();
     if (!client || !user) return { ok: false, message: "Sign in before creating a league." };
@@ -434,6 +440,7 @@
     ensureProfile,
     ensureCodeProfile,
     getProfileByCode,
+    getProfileByEmail,
     createLeague,
     joinLeague,
     createLeagueWithCode,
