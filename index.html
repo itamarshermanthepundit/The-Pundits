@@ -1363,6 +1363,47 @@
       font-size: .9rem;
     }
 
+    .friend-card summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: pointer;
+      font-weight: 900;
+      list-style: none;
+    }
+
+    .friend-card summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .friend-view-icon {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: white;
+      color: var(--sky);
+      font-size: .72rem;
+      font-weight: 900;
+    }
+
+    .friend-groups {
+      display: grid;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .friend-group {
+      padding: 8px;
+      border-radius: 6px;
+      background: white;
+      font-size: .82rem;
+      line-height: 1.45;
+    }
+
     .mini-bracket {
       display: grid;
       gap: 8px;
@@ -1866,14 +1907,9 @@
                   Email
                   <input id="returnCodeInput" type="email" placeholder="you@example.com" autocomplete="email">
                 </label>
-                <label hidden>
-                  Forgot your code?
-                  <input id="recoveryEmailInput" type="email" placeholder="Enter your registered email" autocomplete="email">
-                </label>
               </div>
               <div class="actions">
                 <button class="button" type="button" data-login-choice="choice">Back</button>
-                <button class="button" id="recoverCodeButton" type="button" hidden>Send code recovery email</button>
                 <button class="button primary" id="returnCodeEnter" type="button">Enter app</button>
               </div>
             </div>
@@ -2913,7 +2949,6 @@
       document.getElementById("emailInput").value = state.login.email || "";
       document.getElementById("squadInput").value = state.login.squad || "";
       document.getElementById("returnEmailInput").value = state.login.email || "";
-      document.getElementById("recoveryEmailInput").value = state.login.email || "";
       document.getElementById("returnCodeInput").value = state.login.email || "";
       document.getElementById("createdCodeText").textContent = state.login.code || "";
       document.getElementById("createdCodeCard").classList.remove("active");
@@ -3668,7 +3703,7 @@
       }
 
       if (!state.dashboard.picksArePublic) {
-        note.textContent = "Friend picks unlock after the June 11 deadline, so nobody can copy early.";
+        note.textContent = "Friend picks unlock when the tournament admin closes predictions.";
         slideNote.textContent = note.textContent;
         const hiddenHtml = members.map(member => `
           <div class="league-item">
@@ -3681,19 +3716,26 @@
         return;
       }
 
-      note.textContent = "Deadline passed. League picks are now open.";
+      note.textContent = "Predictions are closed. Tap View to inspect each league member's picks.";
       slideNote.textContent = note.textContent;
       const picksHtml = members.map(member => {
         const award = awardForUser(member.user_id) || {};
-        const groupsMade = groupsForUser(member.user_id).length;
+        const groupRows = groupsForUser(member.user_id).sort((a, b) => a.group_key.localeCompare(b.group_key));
         return `
-          <article class="friend-card">
-            <h4>${escapeHtml(memberName(member))}</h4>
+          <details class="friend-card">
+            <summary>
+              <span>${escapeHtml(memberName(member))}</span>
+              <span class="friend-view-icon" title="View picks">View</span>
+            </summary>
             <p><strong>Champion:</strong> ${award.champion ? escapeHtml(displayName(award.champion)) : "Not picked"}</p>
             <p><strong>Top scorer:</strong> ${award.top_scorer ? escapeHtml(award.top_scorer) : "Not picked"}</p>
             <p><strong>Top assister:</strong> ${award.top_assister ? escapeHtml(award.top_assister) : "Not picked"}</p>
-            <p><strong>Groups submitted:</strong> ${groupsMade}/12</p>
-          </article>
+            <div class="friend-groups">
+              ${groupRows.length ? groupRows.map(row => `
+                <div class="friend-group"><strong>Group ${escapeHtml(row.group_key)}:</strong> ${row.ordered_teams.map(team => escapeHtml(displayName(team))).join(" · ")}</div>
+              `).join("") : '<div class="friend-group">No group picks submitted.</div>'}
+            </div>
+          </details>
         `;
       }).join("");
       target.innerHTML = picksHtml;
@@ -4035,30 +4077,6 @@
       }, result.ok ? 12000 : 3000);
     }
 
-    async function sendCodeRecovery() {
-      const button = document.getElementById("recoverCodeButton");
-      const email = document.getElementById("recoveryEmailInput").value.trim();
-      if (!email) {
-        showToast("Add your registered email first");
-        return;
-      }
-      if (!window.PunditsCloud?.isReady()) {
-        showToast("Online recovery is not ready.");
-        return;
-      }
-
-      button.disabled = true;
-      const originalText = button.textContent;
-      button.textContent = "Sending...";
-      const result = await window.PunditsCloud.requestCodeRecovery(email);
-      showToast(result.message);
-      button.textContent = result.ok ? "Open the email to reveal code" : originalText;
-      window.setTimeout(() => {
-        button.disabled = false;
-        button.textContent = originalText;
-      }, result.ok ? 12000 : 3000);
-    }
-
     document.getElementById("returnSignInOnline").addEventListener("click", () => continueOrSendLogin("returnEmailInput", "returnSignInOnline"));
     document.querySelectorAll("[data-login-choice]").forEach(button => {
       button.addEventListener("click", () => setLoginChoice(button.dataset.loginChoice));
@@ -4066,7 +4084,6 @@
     document.getElementById("firstTimeEnter").addEventListener("click", enterFirstTimeUser);
     document.getElementById("continueWithCode").addEventListener("click", continueWithCreatedCode);
     document.getElementById("returnCodeEnter").addEventListener("click", enterWithAccessCode);
-    document.getElementById("recoverCodeButton").addEventListener("click", sendCodeRecovery);
     document.getElementById("dismissRecoveredCode").addEventListener("click", () => {
       document.getElementById("recoveredCodeNotice").hidden = true;
     });
