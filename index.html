@@ -2032,7 +2032,7 @@
           </div>
           <div class="actions">
             <button class="button" id="resetGroups">Reset groups</button>
-            <button class="button primary" data-next>Save and continue</button>
+            <button class="button primary" data-next>Continue</button>
           </div>
         </div>
         <div class="groups-grid" id="groupsGrid"></div>
@@ -2093,7 +2093,7 @@
             </div>
             <div class="actions">
               <button class="button" data-back>Back</button>
-              <button class="button primary" data-next>Save and continue</button>
+              <button class="button primary" data-next>Continue</button>
             </div>
           </div>
         </div>
@@ -3966,17 +3966,15 @@
       button.addEventListener("click", async () => {
         if (activeSlide === 0) await saveLogin();
         if (activeSlide === 4) {
-          if (picksAreLocked()) {
-            showToast("Picks are locked");
-            return;
-          }
-          updateBonusSummary();
-          if (state.dashboard?.userId) {
-            if (state.league.activeLeagueId) {
-              await savePredictionsOnlineSilently();
-              await loadDashboardData();
+          if (!picksAreLocked()) {
+            updateBonusSummary();
+            if (state.dashboard?.userId) {
+              if (state.league.activeLeagueId) {
+                await savePredictionsOnlineSilently();
+                await loadDashboardData();
+              }
+              saveState("Bonus picks saved");
             }
-            saveState("Bonus picks saved");
           }
         }
         goToSlide(activeSlide + 1);
