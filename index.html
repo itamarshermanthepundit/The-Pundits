@@ -1740,11 +1740,10 @@
         <div class="progress" aria-label="Progress">
           <button class="dot active" data-go="3">1</button>
           <button class="dot" data-go="4">2</button>
-          <button class="dot" data-go="5">3</button>
-          <button class="dot" data-go="6">4</button>
-          <button class="dot" data-go="7">5</button>
-          <button class="dot" data-go="8">6</button>
-          <button class="dot" data-go="9">7</button>
+          <button class="dot" data-go="6">3</button>
+          <button class="dot" data-go="7">4</button>
+          <button class="dot" data-go="8">5</button>
+          <button class="dot" data-go="9">6</button>
         </div>
       </div>
     </header>
@@ -2168,7 +2167,7 @@
               </div>
             </div>
             <div class="actions">
-              <button class="button" data-go="5">Back</button>
+              <button class="button" data-go="9">Back</button>
               <button class="button primary" data-go="8">Continue</button>
             </div>
           </div>
@@ -2199,7 +2198,7 @@
               </div>
             </div>
             <div class="actions">
-              <button class="button" data-go="5">Back</button>
+              <button class="button" data-go="9">Back</button>
               <button class="button primary" data-go="8">Continue</button>
             </div>
           </div>
@@ -2214,7 +2213,7 @@
             <p>The real knockout bracket is locked until the group stage is finished. It opens on July 1, 2026.</p>
           </div>
           <div class="actions">
-            <button class="button" data-go="5">Back</button>
+            <button class="button" data-go="9">Back</button>
             <button class="button primary" id="goToMyLeagues" type="button">My leagues</button>
           </div>
         </div>
@@ -2279,6 +2278,8 @@
             <p>All the leagues you are part of live here. Every member can see who is in the room, while friend picks stay hidden until they unlock.</p>
           </div>
           <div class="actions">
+            <button class="button" type="button" data-go="6">Create league</button>
+            <button class="button" type="button" data-go="7">Join league</button>
             <button class="button" id="openRules" type="button">Rules &amp; scoring</button>
             <button class="button" data-back>Back</button>
           </div>
@@ -2292,6 +2293,10 @@
               <input id="profileNameInput" placeholder="Your pundit name" autocomplete="nickname">
             </label>
             <button class="button primary" id="saveProfileName" type="button">Save name</button>
+          </section>
+          <section class="dashboard-panel">
+            <h3>Prediction save status</h3>
+            <p id="onlinePickStatus">Checking the database...</p>
           </section>
           <section class="dashboard-panel" id="adminStatsPanel" hidden>
             <div class="wide-head">
@@ -3339,8 +3344,9 @@
             state.league.activeLeagueId = result.league.id;
             addLeagueMembership(result.league.name, result.league.code, "Created", result.league.id);
             renderLeague();
-            await savePredictionsOnlineSilently();
-            saveState("League created online");
+            const saved = await savePredictionsOnlineSilently();
+            saveState(saved.ok ? "League created and picks saved online" : "League created, but picks were not saved");
+            if (!saved.ok) showToast(saved.message);
             return;
           }
           showToast(result.message);
@@ -3357,9 +3363,10 @@
           state.league.activeLeagueId = result.league.id;
           addLeagueMembership(result.league.name, result.league.code, "Created", result.league.id);
           renderLeague();
-          await savePredictionsOnlineSilently();
+          const saved = await savePredictionsOnlineSilently();
           await loadDashboardData();
-          saveState("League created online");
+          saveState(saved.ok ? "League created and picks saved online" : "League created, but picks were not saved");
+          if (!saved.ok) showToast(saved.message);
           return;
         }
         showToast(result.message);
@@ -3396,13 +3403,16 @@
             state.league.activeLeagueId = result.league.id;
             addLeagueMembership(result.league.name, result.league.code, "Joined", result.league.id);
             renderLeague();
-            await hydratePredictions(result.league.id);
-            renderGroups();
-            renderBonus();
-            await savePredictionsOnlineSilently();
+            const saved = await savePredictionsOnlineSilently();
+            if (saved.ok) {
+              await hydratePredictions(result.league.id);
+              renderGroups();
+              renderBonus();
+            }
             await hydrateOnlineState({ navigate: false });
             await loadDashboardData();
-            saveState("League joined online");
+            saveState(saved.ok ? "League joined and picks saved online" : "League joined, but picks were not saved");
+            if (!saved.ok) showToast(saved.message);
             return true;
           }
           showToast(result.message);
@@ -3418,12 +3428,15 @@
           state.league.activeLeagueId = result.league.id;
           addLeagueMembership(result.league.name, result.league.code, "Joined", result.league.id);
           renderLeague();
-          await hydratePredictions(result.league.id);
-          renderGroups();
-          renderBonus();
-          await savePredictionsOnlineSilently();
+          const saved = await savePredictionsOnlineSilently();
+          if (saved.ok) {
+            await hydratePredictions(result.league.id);
+            renderGroups();
+            renderBonus();
+          }
           await loadDashboardData();
-          saveState("League joined online");
+          saveState(saved.ok ? "League joined and picks saved online" : "League joined, but picks were not saved");
+          if (!saved.ok) showToast(saved.message);
           return true;
         }
         showToast(result.message);
@@ -3743,23 +3756,37 @@
     }
 
     async function savePredictionsOnlineSilently() {
-      if (picksAreLocked()) return;
-      if (!window.PunditsCloud?.isReady() || !state.league.activeLeagueId) return;
+      const status = document.getElementById("onlinePickStatus");
+      if (picksAreLocked()) {
+        const result = { ok: false, message: "Predictions are locked. Local picks were not uploaded." };
+        if (status) status.textContent = result.message;
+        return result;
+      }
+      if (!window.PunditsCloud?.isReady() || !state.league.activeLeagueId) {
+        const result = { ok: false, message: "No league is selected, so picks are only on this device." };
+        if (status) status.textContent = result.message;
+        return result;
+      }
       if (hasCodeLogin() && !state.dashboard.userId) await syncCodeProfileOnline();
+      let result;
       if (hasCodeLogin()) {
-        await window.PunditsCloud.savePredictionsWithCode({
+        result = await window.PunditsCloud.savePredictionsWithCode({
           accessCode: state.login.code,
           leagueId: state.league.activeLeagueId,
           groupPicks: state.groupPicks,
           bonus: state.bonus
         });
-        return;
+      } else {
+        result = await window.PunditsCloud.savePredictions({
+          leagueId: state.league.activeLeagueId,
+          groupPicks: state.groupPicks,
+          bonus: state.bonus
+        });
       }
-      await window.PunditsCloud.savePredictions({
-        leagueId: state.league.activeLeagueId,
-        groupPicks: state.groupPicks,
-        bonus: state.bonus
-      });
+      if (status) status.textContent = result.ok
+        ? `Saved online at ${new Date().toLocaleTimeString()}`
+        : `Not saved online: ${result.message}`;
+      return result;
     }
 
     async function ensureOnlineLeague() {
@@ -3939,7 +3966,18 @@
       const result = hasCodeLogin()
         ? await window.PunditsCloud.getPredictionsWithCode({ accessCode: state.login.code, leagueId })
         : await window.PunditsCloud.getPredictions(leagueId);
-      if (!result.ok) return;
+      if (!result.ok) {
+        const status = document.getElementById("onlinePickStatus");
+        if (status) status.textContent = `Could not check online picks: ${result.message}`;
+        return;
+      }
+
+      const status = document.getElementById("onlinePickStatus");
+      if (status) {
+        status.textContent = (result.groups || []).length || result.award
+          ? `${(result.groups || []).length}/12 groups and Big Calls found online.`
+          : "No predictions were found online for this league.";
+      }
 
       (result.groups || []).forEach(row => {
         state.groupPicks[row.group_key] = row.ordered_teams;
@@ -3977,13 +4015,13 @@
             }
           }
         }
-        goToSlide(activeSlide + 1);
+        goToSlide(activeSlide === 4 ? 9 : activeSlide + 1);
       });
     });
 
     document.querySelectorAll("[data-back]").forEach(button => {
       button.addEventListener("click", () => {
-        goToSlide(activeSlide - 1);
+        goToSlide(activeSlide === 9 ? 4 : activeSlide - 1);
       });
     });
 
