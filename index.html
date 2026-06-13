@@ -3983,12 +3983,19 @@
         state.groupPicks[row.group_key] = row.ordered_teams;
       });
 
+      const remoteBonus = {
+        winner: result.award?.champion || "",
+        scorer: result.award?.top_scorer || "",
+        assist: result.award?.top_assister || ""
+      };
+      if (result.award || picksAreLocked()) {
+        // Locked online picks are authoritative and must replace the cached set together.
+        state.bonus = remoteBonus;
+      }
       if (result.award) {
-        state.bonus.winner = result.award.champion || "";
-        state.bonus.scorer = result.award.top_scorer || "";
-        state.bonus.assist = result.award.top_assister || "";
         state.dashboard.lockedAt = result.award.locked_at || state.dashboard.lockedAt || "";
       }
+      saveCurrentCodeProfile();
     }
 
     function escapeHtml(value) {
