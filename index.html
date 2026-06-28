@@ -3866,7 +3866,16 @@
         }, {});
     }
 
-    function scoreEntry(userId) {
+    function storedMemberScore(member) {
+      const rawScore = member?.group_stage_points ?? member?.score ?? member?.points;
+      const score = Number(rawScore);
+      return Number.isFinite(score) ? score : null;
+    }
+
+    function scoreEntry(userId, member = null) {
+      const savedScore = storedMemberScore(member);
+      if (savedScore !== null) return savedScore;
+
       const officialGroups = officialResultMap("group");
       const awardRows = officialResultMap("award");
       const officialAwards = awardRows.final || awardRows.awards || null;
@@ -3887,7 +3896,7 @@
       }
 
       const rows = members
-        .map(member => ({ member, score: scoreEntry(member.user_id) }))
+        .map(member => ({ member, score: scoreEntry(member.user_id, member) }))
         .sort((a, b) => b.score - a.score);
 
       const table = `
