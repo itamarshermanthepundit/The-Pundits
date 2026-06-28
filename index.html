@@ -2658,6 +2658,7 @@
     const storeKey = "wc26-slide-prediction-game";
     const codeStoreKey = "pundits-access-codes";
     const lastUserStoreKey = "pundits-last-user";
+    const lastEmailStoreKey = "pundits-last-email";
     const inviteStoreKey = "pundits-pending-league-invite";
     const loginLinkStoreKey = "pundits-login-links-sent";
     const loginLinkReuseMs = 23 * 60 * 60 * 1000;
@@ -2919,7 +2920,23 @@
       rememberLastUser();
     }
 
+    function rememberLastEmail(email) {
+      const clean = String(email || "").trim().toLowerCase();
+      if (!clean) return;
+      localStorage.setItem(lastEmailStoreKey, clean);
+    }
+
+    function savedLastEmail() {
+      try {
+        const last = JSON.parse(localStorage.getItem(lastUserStoreKey) || "{}");
+        return String(last.email || localStorage.getItem(lastEmailStoreKey) || "").trim().toLowerCase();
+      } catch {
+        return String(localStorage.getItem(lastEmailStoreKey) || "").trim().toLowerCase();
+      }
+    }
+
     function rememberLastUser() {
+      if (state.login?.email) rememberLastEmail(state.login.email);
       if (!state.login?.code || !state.login?.email) return;
       localStorage.setItem(lastUserStoreKey, JSON.stringify({
         code: state.login.code,
@@ -2954,15 +2971,45 @@
 
     function applyCodeProfile(profile) {
       state.login.email = profile.email || state.login.email;
-      state.login.squad = profile.squad || state.login.squad;
-      if (profile.appState?.groupPicks) state.groupPicks = profile.appState.groupPicks;
-      if (profile.appState?.bonus) state.bonus = profile.appState.bonus;
-      if (profile.appState?.league) state.league = profile.appState.league;
-      if (profile.appState?.knockout) state.knockout = profile.appState.knockout;
-      if (profile.appState?.dashboard) {
-        state.dashboard.lockedAt = profile.appState.dashboard.lockedAt || "";
-        state.dashboard.picksArePublic = Boolean(profile.appState.dashboard.picksArePublic);
+      state.login.squad = profile.squad || profile.squad_name || state.login.squad;
+      const savedAppState = profile.appState || profile.app_state || {};
+      if (savedAppState?.groupPicks) state.groupPicks = savedAppState.groupPicks;
+      if (savedAppState?.bonus) state.bonus = savedAppState.bonus;
+      if (savedAppState?.league) state.league = savedAppState.league;
+      if (savedAppState?.knockout) state.knockout = savedAppState.knockout;
+      if (savedAppState?.dashboard) {
+        state.dashboard.lockedAt = savedAppState.dashboard.lockedAt || "";
+        state.dashboard.picksArePublic = Boolean(savedAppState.dashboard.picksArePublic);
       }
+    }
+
+    async function finishEmailProfileLogin(profile, message = "Welcome back") {
+      if (!profile) return false;
+      const code = profile.access_code || state.login.code || generateAccessCode();
+      applyCodeProfile(profile);
+      state.login.code = code;
+      state.loginComplete = true;
+      state.pendingFirstTimeLogin = false;
+      state.allowIntroAfterLogin = false;
+      state.skipIntroAfterCode = true;
+      rememberAccessCode();
+      renderLogin();
+      renderGroups();
+      renderBonus();
+      renderLeague();
+      await syncCodeProfileOnline();
+      await hydrateCodeLeagues();
+      saveState(message);
+      return true;
+    }
+
+    async function restoreUserFromSavedEmail() {
+      if (!window.PunditsCloud?.isReady()) return false;
+      const email = savedLastEmail();
+      if (!email) return false;
+      const result = await window.PunditsCloud.getProfileByEmail(email);
+      if (!result.ok || !result.profile) return false;
+      return finishEmailProfileLogin(result.profile, "Welcome back");
     }
 
     function setLoginChoice(choice) {
@@ -3224,26 +3271,15 @@
         const result = await window.PunditsCloud.getProfileByEmail(email);
         if (result.ok && result.profile) {
           code = result.profile.access_code || code || generateAccessCode();
-          profile = { email: result.profile.email, squad: result.profile.squad_name };
+          profile = result.profile;
         }
       }
       if (!profile || !code) {
         showToast("No account found for that email");
         return;
       }
-      applyCodeProfile(profile);
-      state.login.code = code;
-      state.loginComplete = true;
-      state.pendingFirstTimeLogin = false;
-      state.allowIntroAfterLogin = false;
-      state.skipIntroAfterCode = true;
-      renderLogin();
-      renderGroups();
-      renderBonus();
-      renderLeague();
-      await syncCodeProfileOnline();
-      await hydrateCodeLeagues();
-      saveState("Welcome back");
+      profile.access_code = code;
+      await finishEmailProfileLogin(profile, "Welcome back");
       if (await processPendingInvite()) return;
       openReturningDashboard("round32");
     }
@@ -4349,6 +4385,12 @@
         }
       }
       restoreLastUser();
+      if (!hasRememberedLocalUser() && await restoreUserFromSavedEmail()) {
+        if (await processPendingInvite()) return;
+        openReturningDashboard("round32");
+        showToast("Welcome back");
+        return;
+      }
       if (hasRememberedLocalUser()) {
         state.loginComplete = true;
         state.allowIntroAfterLogin = false;
@@ -4502,10 +4544,23 @@
       }
 
       state.login.email = email;
+      rememberLastEmail(email);
       saveState();
       button.disabled = true;
       const originalText = button.textContent;
       button.textContent = "Checking...";
+      if (window.PunditsCloud?.isReady()) {
+        const profileResult = await window.PunditsCloud.getProfileByEmail(email);
+        if (profileResult.ok && profileResult.profile) {
+          await finishEmailProfileLogin(profileResult.profile, "Welcome back");
+          button.disabled = false;
+          button.textContent = originalText;
+          if (await processPendingInvite()) return;
+          openReturningDashboard("round32");
+          return;
+        }
+      }
+
       const user = await window.PunditsCloud.getUser();
       if (user) {
         state.loginComplete = true;
