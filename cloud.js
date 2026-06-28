@@ -1,375 +1,491 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>The Pundits Admin</title>
-  <style>
-    body {
-      margin: 0;
-      color: #17101f;
-      background: #fff8f2;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    main {
-      max-width: 920px;
-      margin: 0 auto;
-      padding: 28px 18px;
-    }
-    h1 {
-      margin: 0 0 8px;
-      font-size: clamp(2rem, 5vw, 4rem);
-      line-height: 1;
-    }
-    p {
-      color: #6e6278;
-      line-height: 1.5;
-    }
-    .panel {
-      display: grid;
-      gap: 14px;
-      margin-top: 18px;
-      padding: 18px;
-      border: 1px solid #eadff0;
-      border-radius: 8px;
-      background: white;
-      box-shadow: 0 20px 48px rgba(52, 0, 94, .12);
-    }
-    label {
-      display: grid;
-      gap: 7px;
-      color: #6e6278;
-      font-weight: 800;
-    }
-    input,
-    select,
-    textarea,
-    button {
-      font: inherit;
-    }
-    input,
-    select,
-    textarea {
-      width: 100%;
-      box-sizing: border-box;
-      min-height: 46px;
-      padding: 10px 12px;
-      border: 1px solid #eadff0;
-      border-radius: 8px;
-    }
-    textarea {
-      min-height: 190px;
-      resize: vertical;
-    }
-    button {
-      min-height: 44px;
-      padding: 0 16px;
-      border: 0;
-      border-radius: 8px;
-      color: white;
-      background: #6500ef;
-      font-weight: 900;
-      cursor: pointer;
-    }
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    .status {
-      min-height: 24px;
-      color: #6e6278;
-      font-weight: 800;
-    }
-    .admin-only[hidden] {
-      display: none;
-    }
-    .control-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-    }
-    .control {
-      display: grid;
-      gap: 10px;
-      padding: 14px;
-      border: 1px solid #eadff0;
-      border-radius: 8px;
-      background: #f7f0fb;
-    }
-    .control strong {
-      font-size: 1.05rem;
-    }
-    .stat-number {
-      color: #6500ef;
-      font-size: clamp(2rem, 6vw, 3.5rem);
-      font-weight: 950;
-      line-height: 1;
-    }
-    .control button {
-      background: #17101f;
-    }
-    .control button.danger {
-      background: #b34538;
-    }
-    @media (max-width: 640px) {
-      .row,
-      .control-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-</head>
-<body>
-  <main>
-    <h1>The Pundits Admin</h1>
-    <p>This protected control room locks predictions, opens the Last 32, and publishes official results without deleting player picks.</p>
-
-    <section class="panel">
-      <h2>Sign in</h2>
-      <label>
-        Six-digit admin password
-        <input id="adminPassword" type="password" inputmode="numeric" maxlength="6" placeholder="Enter password" autocomplete="current-password">
-      </label>
-      <button id="adminSignIn">Open admin controls</button>
-      <div class="status" id="authStatus"></div>
-    </section>
-
-    <section class="panel admin-only" hidden>
-      <div class="row">
-        <div>
-          <h2>App activity</h2>
-          <p>Live totals across The Pundits.</p>
-        </div>
-        <button id="refreshStats" type="button">Refresh totals</button>
-      </div>
-      <div class="control-grid">
-        <div class="control">
-          <strong>Registered users</strong>
-          <span class="stat-number" id="usersCount">-</span>
-        </div>
-        <div class="control">
-          <strong>Leagues</strong>
-          <span class="stat-number" id="leaguesCount">-</span>
-        </div>
-        <div class="control">
-          <strong>League memberships</strong>
-          <span class="stat-number" id="membershipsCount">-</span>
-        </div>
-      </div>
-      <div class="status" id="statsStatus"></div>
-    </section>
-
-    <section class="panel admin-only" hidden>
-      <div class="row">
-        <div>
-          <h2>Prediction favorites</h2>
-          <p>The most popular Big Calls across every saved entry.</p>
-        </div>
-        <button id="refreshInsights" type="button">Refresh favorites</button>
-      </div>
-      <div class="control-grid">
-        <div class="control">
-          <strong>Champion</strong>
-          <span id="favoriteChampion">-</span>
-        </div>
-        <div class="control">
-          <strong>Top scorer</strong>
-          <span id="favoriteScorer">-</span>
-        </div>
-        <div class="control">
-          <strong>Top assister</strong>
-          <span id="favoriteAssister">-</span>
-        </div>
-      </div>
-      <div class="status" id="insightsStatus"></div>
-    </section>
-
-    <section class="panel admin-only" hidden>
-      <h2>Tournament controls</h2>
-      <div class="control-grid">
-        <div class="control">
-          <strong>Group-stage picks</strong>
-          <span id="groupLockStatus">Checking...</span>
-          <button class="danger" data-setting="group_picks_locked" data-value="true">Lock picks</button>
-        </div>
-        <div class="control">
-          <strong>Last 32 bracket</strong>
-          <span id="bracketOpenStatus">Checking...</span>
-          <button data-setting="bracket_open" data-value="true">Open Last 32</button>
-        </div>
-        <div class="control">
-          <strong>Last 32 picks</strong>
-          <span id="bracketLockStatus">Checking...</span>
-          <button class="danger" data-setting="bracket_picks_locked" data-value="true">Lock bracket picks</button>
-        </div>
-      </div>
-      <div class="status" id="controlStatus"></div>
-    </section>
-
-    <section class="panel admin-only" hidden>
-      <h2>Official result</h2>
-      <div class="row">
-        <label>
-          Result type
-          <select id="resultType">
-            <option value="group">Group table</option>
-            <option value="award">Award winner</option>
-            <option value="match">Match schedule</option>
-            <option value="bracket">Knockout match</option>
-          </select>
-        </label>
-        <label>
-          Result key
-          <input id="resultKey" placeholder="A, champion, R32-01">
-        </label>
-      </div>
-      <label>
-        Result JSON
-        <textarea id="resultValue" placeholder='Example match: {"stage":"Round of 32","home_team":"Mexico","away_team":"South Korea","kickoff_at":"2026-06-29T20:00:00+03:00"}'></textarea>
-      </label>
-      <button id="saveResult">Save result</button>
-      <div class="status" id="saveStatus"></div>
-    </section>
-  </main>
-
-  <script src="supabase-config.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="cloud.js"></script>
-  <script>
-    const config = window.PUNDITS_SUPABASE;
-    const client = config?.url && config?.anonKey && window.supabase
-      ? window.supabase.createClient(config.url, config.anonKey)
-      : null;
-    let adminToken = "";
-
-    function setText(id, text) {
-      document.getElementById(id).textContent = text;
-    }
-
-    async function loadAdmin() {
-      if (!client || !adminToken) return;
-      document.querySelectorAll(".admin-only").forEach(panel => panel.hidden = false);
-      setText("authStatus", "Admin controls unlocked.");
-      await loadStats();
-      await loadInsights();
-      await loadSettings();
-    }
-
-    async function loadStats() {
-      setText("statsStatus", "Refreshing...");
-      const { data, error } = await client.rpc("admin_password_get_stats", { p_token: adminToken });
-      if (error) {
-        setText("statsStatus", error.message);
-        return;
-      }
-      setText("usersCount", data?.users ?? 0);
-      setText("leaguesCount", data?.leagues ?? 0);
-      setText("membershipsCount", data?.memberships ?? 0);
-      setText("statsStatus", `Updated ${new Date().toLocaleTimeString()}`);
-    }
-
-    async function loadSettings() {
-      const { data, error } = await client.from("official_results").select("*").eq("result_type", "setting");
-      if (error) {
-        setText("controlStatus", error.message);
-        return;
-      }
-      const settings = Object.fromEntries((data || []).map(row => [row.result_key, row.value]));
-      setText("groupLockStatus", settings.group_picks_locked === true ? "Locked" : "Open");
-      setText("bracketOpenStatus", settings.bracket_open === true ? "Open" : "Locked");
-      setText("bracketLockStatus", settings.bracket_picks_locked === true ? "Locked" : "Open");
-    }
-
-    async function loadInsights() {
-      setText("insightsStatus", "Refreshing...");
-      const { data, error } = await client.rpc("admin_password_get_insights", { p_token: adminToken });
-      if (error) {
-        setText("insightsStatus", error.message);
-        return;
-      }
-      const favoriteText = favorite => favorite?.pick
-        ? `${favorite.pick} (${favorite.votes} ${favorite.votes === 1 ? "pick" : "picks"})`
-        : "No picks yet";
-      setText("favoriteChampion", favoriteText(data?.champion));
-      setText("favoriteScorer", favoriteText(data?.top_scorer));
-      setText("favoriteAssister", favoriteText(data?.top_assister));
-      setText("insightsStatus", `${data?.entries ?? 0} saved Big Calls entries`);
-    }
-
-    document.getElementById("adminSignIn").addEventListener("click", async () => {
-      if (!client) {
-        setText("authStatus", "Supabase is not configured yet.");
-        return;
-      }
-      const password = document.getElementById("adminPassword").value.trim();
-      if (!/^\d{6}$/.test(password)) {
-        setText("authStatus", "Enter the six-digit password.");
-        return;
-      }
-      setText("authStatus", "Checking password...");
-      const { data, error } = await client.rpc("admin_password_login", { p_password: password });
-      document.getElementById("adminPassword").value = "";
-      if (error || !data) {
-        setText("authStatus", error?.message || "Password is incorrect.");
-        return;
-      }
-      adminToken = data;
-      await loadAdmin();
-    });
-
-    document.querySelectorAll("[data-setting]").forEach(button => {
-      button.addEventListener("click", async () => {
-        const confirmed = window.confirm(`Confirm: ${button.textContent}? Player predictions will remain saved.`);
-        if (!confirmed) return;
-        const { error } = await client.rpc("admin_password_set_tournament_setting", {
-          p_token: adminToken,
-          p_key: button.dataset.setting,
-          p_value: button.dataset.value === "true"
-        });
-        setText("controlStatus", error ? error.message : "Tournament setting updated.");
-        if (!error) await loadSettings();
+(() => {
+  const config = window.PUNDITS_SUPABASE;
+  const hasSupabase = Boolean(config?.url && config?.anonKey && window.supabase);
+  let client = null;
+  let startupError = "";
+  if (hasSupabase) {
+    try {
+      client = window.supabase.createClient(config.url, config.anonKey, {
+        auth: {
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          persistSession: true
+        }
       });
+    } catch (error) {
+      startupError = error.message || String(error);
+      client = null;
+    }
+  }
+
+  function isReady() {
+    return Boolean(client);
+  }
+
+  function setupError() {
+    if (client) return "";
+    return startupError || "Supabase helper did not start.";
+  }
+
+  async function getUser() {
+    if (!client) return null;
+    const { data } = await client.auth.getUser();
+    return data.user || null;
+  }
+
+  async function getSession() {
+    if (!client) return null;
+    const { data } = await client.auth.getSession();
+    return data.session || null;
+  }
+
+  async function waitForSession(timeoutMs = 6000) {
+    if (!client) return null;
+    const existing = await getSession();
+    if (existing) return existing;
+
+    return new Promise(resolve => {
+      let settled = false;
+      let subscription;
+      const timer = window.setTimeout(() => finish(null), timeoutMs);
+      const finish = session => {
+        if (settled) return;
+        settled = true;
+        subscription?.unsubscribe();
+        window.clearTimeout(timer);
+        resolve(session || null);
+      };
+      const { data } = client.auth.onAuthStateChange((_event, session) => finish(session));
+      subscription = data.subscription;
     });
+  }
 
-    document.getElementById("refreshStats").addEventListener("click", loadStats);
-    document.getElementById("refreshInsights").addEventListener("click", loadInsights);
+  function hasAuthRedirect() {
+    const url = new URL(window.location.href);
+    return (
+      url.searchParams.has("code") ||
+      url.searchParams.has("token_hash") ||
+      window.location.hash.includes("access_token") ||
+      window.location.hash.includes("refresh_token")
+    );
+  }
 
-    document.getElementById("saveResult").addEventListener("click", async () => {
-      if (!client) {
-        setText("saveStatus", "Supabase is not configured yet.");
-        return;
-      }
+  function isCodeRecovery() {
+    return new URL(window.location.href).searchParams.get("recover") === "code";
+  }
 
-      if (!adminToken) {
-        setText("saveStatus", "Enter the admin password first.");
-        return;
-      }
+  function normalizeLeagueCode(value) {
+    const raw = String(value || "").trim();
+    const clean = raw.toUpperCase().replace(/\s+/g, "").replace(/[–—]/g, "-");
+    const digits = clean.match(/\d{4}$/)?.[0];
+    return digits ? `WC26-${digits}` : raw;
+  }
 
-      let value;
-      try {
-        value = JSON.parse(document.getElementById("resultValue").value);
-      } catch {
-        setText("saveStatus", "Result JSON is not valid.");
-        return;
-      }
-
-      const { error } = await client.rpc("admin_password_save_result", {
-        p_token: adminToken,
-        p_result_type: document.getElementById("resultType").value,
-        p_result_key: document.getElementById("resultKey").value.trim(),
-        p_value: value
-      });
-
-      setText("saveStatus", error ? error.message : "Result saved.");
+  async function signIn(email) {
+    if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const cleanRedirect = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await client.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: cleanRedirect }
     });
+    if (!error) return { ok: true, message: "Check your email for the login link." };
+    const isRateLimit = error.message.toLowerCase().includes("rate limit");
+    return {
+      ok: false,
+      message: isRateLimit
+        ? "Too many login emails were sent. Wait a few minutes, then try again."
+        : error.message
+    };
+  }
 
-    document.getElementById("adminPassword").addEventListener("input", event => {
-      event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
+  async function requestCodeRecovery(email) {
+    if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const redirect = `${window.location.origin}${window.location.pathname}?recover=code`;
+    const { error } = await client.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: redirect }
     });
-    document.getElementById("adminPassword").addEventListener("keydown", event => {
-      if (event.key === "Enter") document.getElementById("adminSignIn").click();
+    if (!error) return { ok: true, message: "Recovery email sent. Open its secure link to reveal and save your permanent Pundits code." };
+    const isRateLimit = error.message.toLowerCase().includes("rate limit");
+    return {
+      ok: false,
+      message: isRateLimit
+        ? "Too many emails were sent. Wait a few minutes, then try again."
+        : error.message
+    };
+  }
+
+  async function recoverPunditCode() {
+    if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const { data, error } = await client.rpc("recover_pundit_code");
+    return error ? { ok: false, message: error.message } : { ok: true, code: data };
+  }
+
+  async function signOut() {
+    if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const { error } = await client.auth.signOut();
+    return error ? { ok: false, message: error.message } : { ok: true };
+  }
+
+  async function saveProfile({ email, squadName }) {
+    const user = await getUser();
+    if (!client || !user) return { ok: false, message: "Sign in before saving online." };
+    const { data, error } = await client.rpc("sync_authenticated_profile", {
+      p_squad_name: squadName || null
     });
-  </script>
-</body>
-</html>
+    return error ? { ok: false, message: error.message } : { ok: true, profile: data };
+  }
+
+  async function ensureProfile(profile = {}) {
+    const user = await getUser();
+    if (!client || !user) return { ok: false, message: "Sign in first." };
+    const { data, error } = await client.rpc("sync_authenticated_profile", {
+      p_squad_name: profile.squadName || null
+    });
+    return error ? { ok: false, message: error.message } : { ok: true, profile: data };
+  }
+
+  async function getProfile() {
+    const user = await getUser();
+    if (!client || !user) return { ok: false, message: "Not signed in." };
+    const { data, error } = await client.from("profiles").select("*").eq("id", user.id).maybeSingle();
+    return error ? { ok: false, message: error.message } : { ok: true, profile: data };
+  }
+
+  async function ensureCodeProfile({ accessCode, email, squadName }) {
+    if (!client || !accessCode) return { ok: false, message: "Create your pundit code first." };
+    const { data, error } = await client.rpc("upsert_code_profile", {
+      p_access_code: accessCode,
+      p_email: email || "",
+      p_squad_name: squadName || "New Pundit"
+    });
+    return error ? { ok: false, message: error.message } : { ok: true, profile: data };
+  }
+
+  async function getProfileByCode(accessCode) {
+    if (!client || !accessCode) return { ok: false, message: "Enter your pundit code first." };
+    const { data, error } = await client.rpc("get_profile_by_code", { p_access_code: accessCode });
+    return error ? { ok: false, message: error.message } : { ok: true, profile: data };
+  }
+
+  async function getProfileByEmail(email) {
+    if (!client || !email) return { ok: false, message: "Enter your email first." };
+    const { data, error } = await client.rpc("get_profile_by_email", { p_email: email });
+    return error ? { ok: false, message: error.message } : { ok: true, profile: data };
+  }
+
+  async function createLeague(name) {
+    const user = await getUser();
+    if (!client || !user) return { ok: false, message: "Sign in before creating a league." };
+    const profile = await ensureProfile();
+    if (!profile.ok) return profile;
+
+    const code = `WC26-${Math.floor(1000 + Math.random() * 9000)}`;
+    const leagueName = String(name || "").trim() || "My Pundits League";
+    const { data, error } = await client.from("leagues").insert({
+      name: leagueName,
+      code,
+      owner_id: user.id
+    }).select().single();
+
+    if (error) return { ok: false, message: error.message };
+    const { error: memberError } = await client.from("league_members").upsert(
+      { league_id: data.id, user_id: user.id },
+      { onConflict: "league_id,user_id" }
+    );
+    if (memberError) return { ok: false, message: memberError.message };
+    return { ok: true, league: data };
+  }
+
+  async function joinLeague(code) {
+    code = normalizeLeagueCode(code);
+    const user = await getUser();
+    if (!client || !user) return { ok: false, message: "Sign in before joining a league." };
+    const profile = await ensureProfile();
+    if (!profile.ok) return profile;
+
+    const rpcResult = await client.rpc("join_league_by_code", { join_code: code });
+    if (!rpcResult.error && rpcResult.data) return { ok: true, league: rpcResult.data };
+
+    const { data: league, error: leagueError } = await client
+      .from("leagues")
+      .select("*")
+      .eq("code", code)
+      .single();
+
+    if (leagueError) return { ok: false, message: "League code not found." };
+    const { error } = await client.from("league_members").upsert(
+      { league_id: league.id, user_id: user.id },
+      { onConflict: "league_id,user_id" }
+    );
+    if (error && !error.message.includes("duplicate key")) return { ok: false, message: error.message };
+    return { ok: true, league };
+  }
+
+  async function createLeagueWithCode({ accessCode, email, squadName, name }) {
+    if (!client || !accessCode) return { ok: false, message: "Create your pundit code first." };
+    const { data, error } = await client.rpc("create_league_with_code", {
+      p_access_code: accessCode,
+      p_email: email || "",
+      p_squad_name: squadName || "New Pundit",
+      p_name: name || "My Pundits League"
+    });
+    return error ? { ok: false, message: error.message } : { ok: true, league: data };
+  }
+
+  async function joinLeagueWithCode({ accessCode, email, squadName, code }) {
+    code = normalizeLeagueCode(code);
+    if (!client || !accessCode) return { ok: false, message: "Create your pundit code first." };
+    const { data, error } = await client.rpc("join_league_with_code", {
+      p_access_code: accessCode,
+      p_email: email || "",
+      p_squad_name: squadName || "New Pundit",
+      p_join_code: code
+    });
+    return error ? { ok: false, message: error.message } : { ok: true, league: data };
+  }
+
+  async function getLeaguesForCode(accessCode) {
+    if (!client || !accessCode) return { ok: false, message: "Create your pundit code first." };
+    const { data, error } = await client.rpc("get_leagues_for_code", { p_access_code: accessCode });
+    return error ? { ok: false, message: error.message } : { ok: true, leagues: data || [] };
+  }
+
+  async function leaveLeague(leagueId) {
+    const user = await getUser();
+    if (!client || !user || !leagueId) return { ok: false, message: "Choose a league first." };
+
+    const { error } = await client
+      .from("league_members")
+      .delete()
+      .eq("league_id", leagueId)
+      .eq("user_id", user.id);
+
+    return error ? { ok: false, message: error.message } : { ok: true };
+  }
+
+  async function leaveLeagueWithCode({ accessCode, leagueId }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "Choose a league first." };
+    const { data, error } = await client.rpc("leave_league_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId
+    });
+    return error ? { ok: false, message: error.message } : { ok: Boolean(data) };
+  }
+
+  async function getLeagues() {
+    const user = await getUser();
+    if (!client || !user) return { ok: false, message: "Not signed in." };
+
+    const { data, error } = await client
+      .from("league_members")
+      .select("leagues(id,name,code,owner_id)")
+      .eq("user_id", user.id);
+
+    if (error) return { ok: false, message: error.message };
+    const byId = new Map();
+    (data || []).map(row => row.leagues).filter(Boolean).forEach(league => byId.set(league.id, league));
+    return {
+      ok: true,
+      leagues: [...byId.values()]
+    };
+  }
+
+  async function ensureStarterLeague() {
+    const user = await getUser();
+    if (!client || !user) return { ok: false, message: "Sign in first." };
+
+    const existing = await getLeagues();
+    if (existing.ok && existing.leagues.length) return { ok: true, league: existing.leagues[0] };
+
+    return createLeague("My Pundits card");
+  }
+
+  async function getPredictions(leagueId) {
+    const user = await getUser();
+    if (!client || !user || !leagueId) return { ok: false, message: "No league selected." };
+
+    const [{ data: groups, error: groupError }, { data: award, error: awardError }] = await Promise.all([
+      client.from("group_predictions").select("*").eq("user_id", user.id).eq("league_id", leagueId),
+      client.from("award_predictions").select("*").eq("user_id", user.id).eq("league_id", leagueId).maybeSingle()
+    ]);
+
+    if (groupError) return { ok: false, message: groupError.message };
+    if (awardError) return { ok: false, message: awardError.message };
+    return { ok: true, groups: groups || [], award };
+  }
+
+  async function getPredictionsWithCode({ accessCode, leagueId }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "No league selected." };
+    const { data, error } = await client.rpc("get_predictions_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId
+    });
+    return error ? { ok: false, message: error.message } : {
+      ok: true,
+      groups: data?.groups || [],
+      award: data?.award || null
+    };
+  }
+
+  async function savePredictions({ leagueId, groupPicks, bonus }) {
+    const user = await getUser();
+    if (!client || !user || !leagueId) return { ok: false, message: "Sign in and choose a league first." };
+
+    const groupRows = Object.entries(groupPicks).map(([groupKey, orderedTeams]) => ({
+      user_id: user.id,
+      league_id: leagueId,
+      group_key: groupKey,
+      ordered_teams: orderedTeams
+    }));
+
+    const { error: groupError } = await client
+      .from("group_predictions")
+      .upsert(groupRows, { onConflict: "user_id,league_id,group_key" });
+    if (groupError) return { ok: false, message: groupError.message };
+
+    const { error: bonusError } = await client.from("award_predictions").upsert({
+      user_id: user.id,
+      league_id: leagueId,
+      champion: bonus.winner,
+      top_scorer: bonus.scorer,
+      top_assister: bonus.assist
+    }, { onConflict: "user_id,league_id" });
+
+    return bonusError ? { ok: false, message: bonusError.message } : { ok: true };
+  }
+
+  async function savePredictionsWithCode({ accessCode, leagueId, groupPicks, bonus }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "Choose a league first." };
+    const { error } = await client.rpc("save_predictions_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId,
+      p_group_picks: groupPicks || {},
+      p_bonus: bonus || {}
+    });
+    return error ? { ok: false, message: error.message } : { ok: true };
+  }
+
+  async function lockPredictions(leagueId) {
+    const user = await getUser();
+    if (!client || !user || !leagueId) return { ok: false, message: "Sign in and choose a league first." };
+    const lockedAt = new Date().toISOString();
+
+    const [{ error: groupError }, { error: awardError }] = await Promise.all([
+      client.from("group_predictions").update({ locked_at: lockedAt }).eq("user_id", user.id).eq("league_id", leagueId),
+      client.from("award_predictions").update({ locked_at: lockedAt }).eq("user_id", user.id).eq("league_id", leagueId)
+    ]);
+
+    if (groupError) return { ok: false, message: groupError.message };
+    if (awardError) return { ok: false, message: awardError.message };
+    return { ok: true, lockedAt };
+  }
+
+  async function getLeagueEntries(leagueId) {
+    const user = await getUser();
+    if (!client || !user || !leagueId) return { ok: false, message: "Choose a league first." };
+    const { data, error } = await client.rpc("get_league_entries_for_user", { p_league_id: leagueId });
+    return error ? { ok: false, message: error.message } : {
+      ok: true,
+      members: data?.members || [],
+      groups: data?.groups || [],
+      awards: data?.awards || [],
+      picksArePublic: Boolean(data?.picksArePublic)
+    };
+  }
+
+  async function getLeagueEntriesWithCode({ accessCode, leagueId }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "Choose a league first." };
+    const { data, error } = await client.rpc("get_league_entries_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId
+    });
+    return error ? { ok: false, message: error.message } : {
+      ok: true,
+      members: data?.members || [],
+      groups: data?.groups || [],
+      awards: data?.awards || [],
+      picksArePublic: Boolean(data?.picksArePublic)
+    };
+  }
+
+  async function getOfficialResults() {
+    if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const { data, error } = await client.from("official_results").select("*");
+    return error ? { ok: false, message: error.message } : { ok: true, results: data || [] };
+  }
+
+  async function getBracketPredictionsWithCode({ accessCode, leagueId }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "Choose a league first." };
+    const { data, error } = await client.rpc("get_bracket_predictions_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId
+    });
+    return error ? { ok: false, message: error.message } : {
+      ok: true,
+      matches: data?.matches || [],
+      ownPredictions: data?.ownPredictions || [],
+      revealedPredictions: data?.revealedPredictions || []
+    };
+  }
+
+  async function saveBracketPredictionWithCode({ accessCode, leagueId, matchKey, homeScore, awayScore }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "Choose a league first." };
+    const { data, error } = await client.rpc("save_bracket_prediction_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId,
+      p_match_key: matchKey,
+      p_home_score: Number(homeScore),
+      p_away_score: Number(awayScore)
+    });
+    return error ? { ok: false, message: error.message } : { ok: true, prediction: data };
+  }
+
+  async function getAdminStats(accessCode = "") {
+    if (!client) return { ok: false, message: "Supabase is not configured yet." };
+    const { data, error } = await client.rpc("get_admin_app_stats", {
+      p_access_code: accessCode || null
+    });
+    return error ? { ok: false, message: error.message } : { ok: true, stats: data || {} };
+  }
+
+  window.PunditsCloud = {
+    isReady,
+    setupError,
+    hasAuthRedirect,
+    isCodeRecovery,
+    signIn,
+    requestCodeRecovery,
+    recoverPunditCode,
+    signOut,
+    getUser,
+    getSession,
+    waitForSession,
+    getProfile,
+    saveProfile,
+    ensureProfile,
+    ensureCodeProfile,
+    getProfileByCode,
+    getProfileByEmail,
+    createLeague,
+    joinLeague,
+    createLeagueWithCode,
+    joinLeagueWithCode,
+    leaveLeague,
+    leaveLeagueWithCode,
+    getLeagues,
+    getLeaguesForCode,
+    ensureStarterLeague,
+    getPredictions,
+    getPredictionsWithCode,
+    savePredictions,
+    savePredictionsWithCode,
+    lockPredictions,
+    getLeagueEntries,
+    getLeagueEntriesWithCode,
+    getOfficialResults,
+    getBracketPredictionsWithCode,
+    saveBracketPredictionWithCode,
+    getAdminStats
+  };
+})();

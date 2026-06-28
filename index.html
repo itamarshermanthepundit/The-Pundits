@@ -3982,12 +3982,28 @@
       });
     }
 
+    function chooseFirstSavedLeague() {
+      const leagues = state.league.memberships || [];
+      if (state.league.activeLeagueId || !leagues.length) return false;
+      const first = leagues[0];
+      state.league.activeLeagueId = first.id || "";
+      state.league.code = first.code || "";
+      state.league.joined = first.code || "";
+      state.league.name = first.name || "";
+      return Boolean(state.league.activeLeagueId);
+    }
+
     async function loadKnockoutData() {
       const feeds = knockoutFeedTargets();
       const statuses = knockoutStatusTargets();
       if (!feeds.length || !statuses.length) return;
+      if (!state.league.activeLeagueId) chooseFirstSavedLeague();
+      if (!state.league.activeLeagueId && hasCodeLogin() && window.PunditsCloud?.getLeaguesForCode) {
+        await refreshLeaguesFromCode();
+        chooseFirstSavedLeague();
+      }
       if (!state.league.activeLeagueId) {
-        setKnockoutStatus("Choose a league first.");
+        setKnockoutStatus("Join a league first so your match predictions have a leaderboard.");
         setKnockoutFeed("");
         return;
       }
