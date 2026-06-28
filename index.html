@@ -1976,15 +1976,22 @@
 
         <div class="dashboard-grid dashboard-page" data-dashboard-page="round32">
           <section class="dashboard-panel">
-            <h3>Round of 32</h3>
-            <p id="dashboardBracketMessage">The knockout page stays locked until the group stage is finished.</p>
-            <div class="mini-bracket" aria-label="Locked Round of 32 preview">
+            <div class="wide-head">
+              <div>
+                <h3>Match score picks</h3>
+                <p id="dashboardBracketMessage">Predict each score before kickoff. Picks reveal when the match starts.</p>
+              </div>
+              <button class="button" id="dashboardRefreshKnockoutMatches" type="button">Refresh matches</button>
+            </div>
+            <div class="mini-bracket" aria-label="Locked Round of 32 preview" hidden>
               <div class="mini-bracket-row"><div class="mini-slot">Qualifier</div><div class="mini-slot">vs</div><div class="mini-slot">Qualifier</div></div>
               <div class="mini-bracket-row"><div class="mini-slot">Qualifier</div><div class="mini-slot">vs</div><div class="mini-slot">Qualifier</div></div>
               <div class="mini-bracket-row"><div class="mini-slot">Winner</div><div class="mini-slot">Final</div><div class="mini-slot">Winner</div></div>
             </div>
           </section>
-          <section class="dashboard-panel">
+          <div class="match-feed" id="dashboardKnockoutMatchFeed"></div>
+          <div class="status-note" id="dashboardKnockoutStatus">Loading matches...</div>
+          <section class="dashboard-panel" hidden>
             <h3>Status</h3>
             <div class="locked-stamp" id="dashboardBracketLock" style="position: static; min-height: 160px; font-size: clamp(2rem, 7vw, 4rem)">
               <div>
@@ -3004,6 +3011,7 @@
       document.querySelectorAll("[data-dashboard-page]").forEach(section => {
         section.classList.toggle("active", section.dataset.dashboardPage === page);
       });
+      if (page === "round32") loadKnockoutData();
     }
 
     function picksAreLocked() {
@@ -3934,33 +3942,33 @@
     }
 
     async function loadKnockoutData() {
-      const feed = document.getElementById("knockoutMatchFeed");
-      const status = document.getElementById("knockoutStatus");
-      if (!feed || !status) return;
+      const feeds = knockoutFeedTargets();
+      const statuses = knockoutStatusTargets();
+      if (!feeds.length || !statuses.length) return;
       if (!state.league.activeLeagueId) {
-        status.textContent = "Choose a league first.";
-        feed.innerHTML = "";
+        setKnockoutStatus("Choose a league first.");
+        setKnockoutFeed("");
         return;
       }
       if (!window.PunditsCloud?.isReady() || !hasCodeLogin()) {
-        status.textContent = "Log in with your pundit email before predicting matches.";
-        feed.innerHTML = "";
+        setKnockoutStatus("Log in with your pundit email before predicting matches.");
+        setKnockoutFeed("");
         return;
       }
       if (!window.PunditsCloud.getBracketPredictionsWithCode) {
-        status.textContent = "Run the knockout Supabase upgrade before opening match predictions.";
-        feed.innerHTML = "";
+        setKnockoutStatus("Run the knockout Supabase upgrade before opening match predictions.");
+        setKnockoutFeed("");
         return;
       }
 
-      status.textContent = "Loading matches...";
+      setKnockoutStatus("Loading matches...");
       const result = await window.PunditsCloud.getBracketPredictionsWithCode({
         accessCode: state.login.code,
         leagueId: state.league.activeLeagueId
       });
       if (!result.ok) {
-        status.textContent = result.message;
-        feed.innerHTML = "";
+        setKnockoutStatus(result.message);
+        setKnockoutFeed("");
         return;
       }
 
@@ -3971,22 +3979,44 @@
       saveState();
     }
 
+    function knockoutFeedTargets() {
+      return ["knockoutMatchFeed", "dashboardKnockoutMatchFeed"]
+        .map(id => document.getElementById(id))
+        .filter(Boolean);
+    }
+
+    function knockoutStatusTargets() {
+      return ["knockoutStatus", "dashboardKnockoutStatus"]
+        .map(id => document.getElementById(id))
+        .filter(Boolean);
+    }
+
+    function setKnockoutFeed(html) {
+      knockoutFeedTargets().forEach(feed => {
+        feed.innerHTML = html;
+      });
+    }
+
+    function setKnockoutStatus(text) {
+      knockoutStatusTargets().forEach(status => {
+        status.textContent = text;
+      });
+    }
+
     function renderKnockoutMatches() {
-      const feed = document.getElementById("knockoutMatchFeed");
-      const status = document.getElementById("knockoutStatus");
       const matches = state.knockout.matches || [];
       if (!matches.length) {
-        feed.innerHTML = `
+        setKnockoutFeed(`
           <div class="dashboard-panel">
             <h3>No matches open yet</h3>
             <p>The admin can add each game when the fixture is ready. It will appear here automatically.</p>
           </div>
-        `;
-        status.textContent = "No knockout matches have been added yet.";
+        `);
+        setKnockoutStatus("No knockout matches have been added yet.");
         return;
       }
 
-      feed.innerHTML = matches.map(match => {
+      const html = matches.map(match => {
         const locked = matchIsLocked(match);
         const own = ownKnockoutPrediction(match.match_key) || {};
         const revealed = revealedKnockoutPredictions(match.match_key);
@@ -4037,7 +4067,8 @@
           </article>
         `;
       }).join("");
-      status.textContent = "Scores lock at kickoff. Locked matches reveal league picks.";
+      setKnockoutFeed(html);
+      setKnockoutStatus("Scores lock at kickoff. Locked matches reveal league picks.");
     }
 
     async function saveKnockoutMatch(card) {
@@ -4604,6 +4635,7 @@
       goToSlide(9);
     });
     document.getElementById("refreshKnockoutMatches")?.addEventListener("click", loadKnockoutData);
+    document.getElementById("dashboardRefreshKnockoutMatches")?.addEventListener("click", loadKnockoutData);
     bootApp();
   </script>
 </body>
