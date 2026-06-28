@@ -1133,6 +1133,123 @@
       text-align: right;
     }
 
+    .match-feed {
+      display: grid;
+      gap: 14px;
+    }
+
+    .match-card {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: white;
+      box-shadow: 0 8px 22px rgba(18, 31, 44, .06);
+    }
+
+    .match-card.locked {
+      border-color: rgba(101, 0, 239, .24);
+      background: #fbf7ff;
+    }
+
+    .match-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .match-head h3 {
+      margin: 2px 0 0;
+      font-size: 1.18rem;
+    }
+
+    .match-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: .86rem;
+      font-weight: 800;
+    }
+
+    .match-status {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .match-status.open {
+      background: #dff8ea;
+      color: #16894a;
+    }
+
+    .match-status.locked {
+      background: #ffe2e2;
+      color: #cb3636;
+    }
+
+    .score-picker {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 72px 32px 72px minmax(0, 1fr);
+      gap: 9px;
+      align-items: center;
+    }
+
+    .score-team {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-weight: 950;
+    }
+
+    .score-team.away {
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .score-picker input {
+      width: 72px;
+      min-width: 0;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 950;
+    }
+
+    .score-divider {
+      text-align: center;
+      color: var(--muted);
+      font-weight: 950;
+    }
+
+    .revealed-picks {
+      display: grid;
+      gap: 8px;
+      padding-top: 4px;
+    }
+
+    .revealed-pick {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 8px;
+      background: var(--soft);
+      font-size: .9rem;
+      font-weight: 850;
+    }
+
+    .revealed-pick span:last-child {
+      color: var(--purple);
+      font-weight: 950;
+    }
+
     .league-list {
       display: grid;
       gap: 8px;
@@ -2220,15 +2337,17 @@
         <div class="wide-head">
           <div>
             <p class="kicker" style="color: var(--grass-dark)">Step 6</p>
-            <h2>Round of 32 bracket</h2>
-            <p>The real knockout bracket is locked until the group stage is finished. It opens on July 1, 2026.</p>
+            <h2>Match score picks</h2>
+            <p>Predict the exact score before kickoff. When the match starts, it locks and everyone in the league can see the picks.</p>
           </div>
           <div class="actions">
             <button class="button" data-go="9">Back</button>
-            <button class="button primary" id="goToMyLeagues" type="button">My leagues</button>
+            <button class="button primary" id="refreshKnockoutMatches" type="button">Refresh matches</button>
           </div>
         </div>
-        <div class="bracket-board" id="lockedBracket" aria-label="Locked Round of 32 bracket">
+        <div class="match-feed" id="knockoutMatchFeed"></div>
+        <div class="status-note" id="knockoutStatus">Loading matches...</div>
+        <div class="bracket-board" id="lockedBracket" aria-label="Locked Round of 32 bracket" hidden>
           <div class="bracket-preview">
             <div class="bracket-column">
               <h3>Round of 32</h3>
@@ -2547,6 +2666,7 @@
         groupPicks: structuredClone(groups),
         bonus: { winner: "", scorer: "", assist: "" },
         league: { name: "", code: "", joined: "", memberships: [], activeLeagueId: "" },
+        knockout: { matches: [], ownPredictions: [], revealedPredictions: [] },
         dashboard: { entries: { members: [], groups: [], awards: [] }, officialResults: [], lockedAt: "", userId: "", picksArePublic: false },
         loginComplete: false,
         pendingFirstTimeLogin: false,
@@ -2779,6 +2899,7 @@
           groupPicks: state.groupPicks,
           bonus: state.bonus,
           league: state.league,
+          knockout: state.knockout,
           dashboard: {
             lockedAt: state.dashboard.lockedAt,
             picksArePublic: state.dashboard.picksArePublic
@@ -2794,6 +2915,7 @@
       if (profile.appState?.groupPicks) state.groupPicks = profile.appState.groupPicks;
       if (profile.appState?.bonus) state.bonus = profile.appState.bonus;
       if (profile.appState?.league) state.league = profile.appState.league;
+      if (profile.appState?.knockout) state.knockout = profile.appState.knockout;
       if (profile.appState?.dashboard) {
         state.dashboard.lockedAt = profile.appState.dashboard.lockedAt || "";
         state.dashboard.picksArePublic = Boolean(profile.appState.dashboard.picksArePublic);
@@ -2863,6 +2985,7 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
       saveState();
       if (activeSlide === 3) refreshOfficialResultsForGroups();
+      if (activeSlide === 8) loadKnockoutData();
     }
 
     function showReturningHome() {
@@ -3781,6 +3904,172 @@
       slideTarget.innerHTML = picksHtml;
     }
 
+    function ownKnockoutPrediction(matchKey) {
+      return (state.knockout.ownPredictions || []).find(row => row.match_key === matchKey) || null;
+    }
+
+    function revealedKnockoutPredictions(matchKey) {
+      return (state.knockout.revealedPredictions || []).filter(row => row.match_key === matchKey);
+    }
+
+    function matchKickoff(match) {
+      const time = Date.parse(match.kickoff_at || "");
+      return Number.isFinite(time) ? time : 0;
+    }
+
+    function matchIsLocked(match) {
+      const kickoff = matchKickoff(match);
+      return kickoff > 0 && Date.now() >= kickoff;
+    }
+
+    function formatKickoff(match) {
+      const kickoff = matchKickoff(match);
+      if (!kickoff) return "Kickoff TBA";
+      return new Date(kickoff).toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    async function loadKnockoutData() {
+      const feed = document.getElementById("knockoutMatchFeed");
+      const status = document.getElementById("knockoutStatus");
+      if (!feed || !status) return;
+      if (!state.league.activeLeagueId) {
+        status.textContent = "Choose a league first.";
+        feed.innerHTML = "";
+        return;
+      }
+      if (!window.PunditsCloud?.isReady() || !hasCodeLogin()) {
+        status.textContent = "Log in with your pundit email before predicting matches.";
+        feed.innerHTML = "";
+        return;
+      }
+      if (!window.PunditsCloud.getBracketPredictionsWithCode) {
+        status.textContent = "Run the knockout Supabase upgrade before opening match predictions.";
+        feed.innerHTML = "";
+        return;
+      }
+
+      status.textContent = "Loading matches...";
+      const result = await window.PunditsCloud.getBracketPredictionsWithCode({
+        accessCode: state.login.code,
+        leagueId: state.league.activeLeagueId
+      });
+      if (!result.ok) {
+        status.textContent = result.message;
+        feed.innerHTML = "";
+        return;
+      }
+
+      state.knockout.matches = result.matches || [];
+      state.knockout.ownPredictions = result.ownPredictions || [];
+      state.knockout.revealedPredictions = result.revealedPredictions || [];
+      renderKnockoutMatches();
+      saveState();
+    }
+
+    function renderKnockoutMatches() {
+      const feed = document.getElementById("knockoutMatchFeed");
+      const status = document.getElementById("knockoutStatus");
+      const matches = state.knockout.matches || [];
+      if (!matches.length) {
+        feed.innerHTML = `
+          <div class="dashboard-panel">
+            <h3>No matches open yet</h3>
+            <p>The admin can add each game when the fixture is ready. It will appear here automatically.</p>
+          </div>
+        `;
+        status.textContent = "No knockout matches have been added yet.";
+        return;
+      }
+
+      feed.innerHTML = matches.map(match => {
+        const locked = matchIsLocked(match);
+        const own = ownKnockoutPrediction(match.match_key) || {};
+        const revealed = revealedKnockoutPredictions(match.match_key);
+        const homeScore = own.predicted_home_score ?? "";
+        const awayScore = own.predicted_away_score ?? "";
+        const revealHtml = locked
+          ? `
+            <div class="revealed-picks">
+              ${revealed.length ? revealed.map(row => `
+                <div class="revealed-pick">
+                  <strong>${escapeHtml(row.squad_name || "Pundit")}</strong>
+                  <span>${Number(row.predicted_home_score)}-${Number(row.predicted_away_score)}</span>
+                </div>
+              `).join("") : '<div class="revealed-pick"><strong>No picks saved</strong><span>-</span></div>'}
+            </div>
+          `
+          : '<div class="status-note">League picks reveal when this match kicks off.</div>';
+
+        return `
+          <article class="match-card ${locked ? "locked" : ""}" data-match-key="${escapeHtml(match.match_key)}">
+            <div class="match-head">
+              <div>
+                <div class="match-meta">
+                  <span>${escapeHtml(match.stage || "Knockout")}</span>
+                  <span>${escapeHtml(formatKickoff(match))}</span>
+                </div>
+                <h3>${escapeHtml(displayName(match.home_team || "Home"))} vs ${escapeHtml(displayName(match.away_team || "Away"))}</h3>
+              </div>
+              <span class="match-status ${locked ? "locked" : "open"}">${locked ? "Locked" : "Open"}</span>
+            </div>
+            <div class="score-picker">
+              <span class="score-team">
+                <span class="flag" aria-hidden="true">${flagMarkup(match.home_team || "")}</span>
+                <span>${escapeHtml(displayName(match.home_team || "Home"))}</span>
+              </span>
+              <input type="number" min="0" step="1" inputmode="numeric" data-score="home" value="${escapeHtml(homeScore)}" ${locked ? "disabled" : ""}>
+              <span class="score-divider">-</span>
+              <input type="number" min="0" step="1" inputmode="numeric" data-score="away" value="${escapeHtml(awayScore)}" ${locked ? "disabled" : ""}>
+              <span class="score-team away">
+                <span>${escapeHtml(displayName(match.away_team || "Away"))}</span>
+                <span class="flag" aria-hidden="true">${flagMarkup(match.away_team || "")}</span>
+              </span>
+            </div>
+            <div class="actions">
+              <button class="button primary" type="button" data-save-match ${locked ? "disabled" : ""}>Save score</button>
+            </div>
+            ${revealHtml}
+          </article>
+        `;
+      }).join("");
+      status.textContent = "Scores lock at kickoff. Locked matches reveal league picks.";
+    }
+
+    async function saveKnockoutMatch(card) {
+      const matchKey = card?.dataset.matchKey;
+      const homeScore = card?.querySelector('[data-score="home"]')?.value;
+      const awayScore = card?.querySelector('[data-score="away"]')?.value;
+      if (!matchKey) return;
+      if (homeScore === "" || awayScore === "") {
+        showToast("Enter both scores");
+        return;
+      }
+      if (!window.PunditsCloud?.saveBracketPredictionWithCode) {
+        showToast("Run the knockout Supabase upgrade first");
+        return;
+      }
+
+      const result = await window.PunditsCloud.saveBracketPredictionWithCode({
+        accessCode: state.login.code,
+        leagueId: state.league.activeLeagueId,
+        matchKey,
+        homeScore,
+        awayScore
+      });
+      if (!result.ok) {
+        showToast(result.message);
+        await loadKnockoutData();
+        return;
+      }
+      showToast("Score saved");
+      await loadKnockoutData();
+    }
+
     async function savePredictionsOnlineSilently() {
       const status = document.getElementById("onlinePickStatus");
       if (picksAreLocked()) {
@@ -4185,6 +4474,12 @@
       saveState("League selected");
     });
     document.addEventListener("click", event => {
+      const saveMatchButton = event.target.closest("[data-save-match]");
+      if (saveMatchButton) {
+        saveKnockoutMatch(saveMatchButton.closest("[data-match-key]"));
+        return;
+      }
+
       const shareButton = event.target.closest("[data-share-league]");
       if (shareButton) {
         const leagueRow = shareButton.closest("[data-league-code]");
@@ -4308,6 +4603,7 @@
       await loadDashboardData();
       goToSlide(9);
     });
+    document.getElementById("refreshKnockoutMatches")?.addEventListener("click", loadKnockoutData);
     bootApp();
   </script>
 </body>

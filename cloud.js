@@ -415,6 +415,32 @@
     return error ? { ok: false, message: error.message } : { ok: true, results: data || [] };
   }
 
+  async function getBracketPredictionsWithCode({ accessCode, leagueId }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "Choose a league first." };
+    const { data, error } = await client.rpc("get_bracket_predictions_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId
+    });
+    return error ? { ok: false, message: error.message } : {
+      ok: true,
+      matches: data?.matches || [],
+      ownPredictions: data?.ownPredictions || [],
+      revealedPredictions: data?.revealedPredictions || []
+    };
+  }
+
+  async function saveBracketPredictionWithCode({ accessCode, leagueId, matchKey, homeScore, awayScore }) {
+    if (!client || !accessCode || !leagueId) return { ok: false, message: "Choose a league first." };
+    const { data, error } = await client.rpc("save_bracket_prediction_with_code", {
+      p_access_code: accessCode,
+      p_league_id: leagueId,
+      p_match_key: matchKey,
+      p_home_score: Number(homeScore),
+      p_away_score: Number(awayScore)
+    });
+    return error ? { ok: false, message: error.message } : { ok: true, prediction: data };
+  }
+
   async function getAdminStats(accessCode = "") {
     if (!client) return { ok: false, message: "Supabase is not configured yet." };
     const { data, error } = await client.rpc("get_admin_app_stats", {
@@ -458,6 +484,8 @@
     getLeagueEntries,
     getLeagueEntriesWithCode,
     getOfficialResults,
+    getBracketPredictionsWithCode,
+    saveBracketPredictionWithCode,
     getAdminStats
   };
 })();

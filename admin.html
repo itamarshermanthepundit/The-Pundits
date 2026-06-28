@@ -215,6 +215,7 @@
           <select id="resultType">
             <option value="group">Group table</option>
             <option value="award">Award winner</option>
+            <option value="match">Match schedule</option>
             <option value="bracket">Knockout match</option>
           </select>
         </label>
@@ -225,7 +226,7 @@
       </div>
       <label>
         Result JSON
-        <textarea id="resultValue" placeholder='Example: ["Mexico","South Africa","South Korea","Czechia"]'></textarea>
+        <textarea id="resultValue" placeholder='Example match: {"stage":"Round of 32","home_team":"Mexico","away_team":"South Korea","kickoff_at":"2026-06-29T20:00:00+03:00"}'></textarea>
       </label>
       <button id="saveResult">Save result</button>
       <div class="status" id="saveStatus"></div>
