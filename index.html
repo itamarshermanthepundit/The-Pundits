@@ -2892,6 +2892,7 @@
       setProgressVisibility();
       window.scrollTo({ top: 0, behavior: "smooth" });
       saveState();
+      if (activeSlide === 3) refreshOfficialResultsForGroups();
     }
 
     function showReturningHome() {
@@ -3146,9 +3147,35 @@
     }
 
     function groupPickResultClass(groupKey, team, index) {
-      const official = officialResultMap("group")[groupKey];
+      const official = normalizeOfficialGroup(officialResultMap("group")[groupKey]);
       if (!Array.isArray(official) || official.length === 0) return "";
       return official[index] === team ? "pick-correct" : "pick-wrong";
+    }
+
+    function normalizeOfficialGroup(value) {
+      if (Array.isArray(value)) return value;
+      if (typeof value === "string") {
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) return parsed;
+        } catch {
+          return value.split(",").map(item => item.trim()).filter(Boolean);
+        }
+      }
+      return [];
+    }
+
+    let officialResultsRefreshPending = false;
+
+    async function refreshOfficialResultsForGroups() {
+      if (officialResultsRefreshPending || !window.PunditsCloud?.isReady()) return;
+      officialResultsRefreshPending = true;
+      const result = await window.PunditsCloud.getOfficialResults();
+      officialResultsRefreshPending = false;
+      if (!result.ok) return;
+      state.dashboard.officialResults = result.results || [];
+      renderGroups();
+      saveState();
     }
 
     function setupGroupInteractions() {
@@ -3658,7 +3685,7 @@
       return (state.dashboard.officialResults || [])
         .filter(row => row.result_type === type)
         .reduce((map, row) => {
-          map[row.result_key] = row.value;
+          map[row.result_key] = type === "group" ? normalizeOfficialGroup(row.value) : row.value;
           return map;
         }, {});
     }
