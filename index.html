@@ -3727,6 +3727,11 @@
       const note = document.getElementById("friendPicksNote");
       const slideTarget = document.getElementById("slideFriendPicks");
       const slideNote = document.getElementById("slideFriendPicksNote");
+      target.innerHTML = "";
+      slideTarget.innerHTML = "";
+      note.textContent = "";
+      slideNote.textContent = "";
+      return;
       if (!members.length) {
         const empty = '<div class="league-item"><span>Friend picks</span><strong>No entries yet</strong></div>';
         target.innerHTML = empty;
