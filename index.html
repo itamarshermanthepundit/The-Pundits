@@ -1760,10 +1760,8 @@
         <div class="progress" aria-label="Progress">
           <button class="dot active" data-go="3">1</button>
           <button class="dot" data-go="4">2</button>
-          <button class="dot" data-go="6">3</button>
-          <button class="dot" data-go="7">4</button>
-          <button class="dot" data-go="8">5</button>
-          <button class="dot" data-go="9">6</button>
+          <button class="dot" data-go="8">3</button>
+          <button class="dot" data-go="9">4</button>
         </div>
       </div>
     </header>
@@ -1850,20 +1848,13 @@
             <div class="league-list" id="dashboardLeagues"></div>
           </section>
           <section class="dashboard-panel">
-            <h3>League members</h3>
-            <p>You can see who is in the league now. Picks open after the deadline so nobody can copy.</p>
-            <div id="leagueMembersList"></div>
-          </section>
-          <section class="dashboard-panel">
             <h3>Leaderboard</h3>
             <p>Scores update when official results are entered.</p>
             <div id="leaderboardTable"></div>
           </section>
-          <section class="dashboard-panel">
-            <h3>Friends' picks</h3>
-            <p id="friendPicksNote">Picks are hidden until the deadline.</p>
-            <div class="friend-picks" id="friendPicks"></div>
-          </section>
+          <div id="leagueMembersList" hidden></div>
+          <p id="friendPicksNote" hidden></p>
+          <div class="friend-picks" id="friendPicks" hidden></div>
         </div>
 
         <div class="dashboard-grid dashboard-page" data-dashboard-page="round32">
@@ -2295,29 +2286,15 @@
           <div>
             <p class="kicker" style="color: var(--grass-dark)">Step 7</p>
             <h2>My leagues</h2>
-            <p>All the leagues you are part of live here. Every member can see who is in the room, while friend picks stay hidden until they unlock.</p>
+            <p>Choose a league and watch the table move as scores come in.</p>
           </div>
           <div class="actions">
-            <button class="button" type="button" data-go="6">Create league</button>
-            <button class="button" type="button" data-go="7">Join league</button>
             <button class="button" id="openRules" type="button">Rules &amp; scoring</button>
             <button class="button" data-back>Back</button>
           </div>
         </div>
         <div class="dashboard-grid dashboard-wide">
-          <section class="dashboard-panel">
-            <h3>Your profile</h3>
-            <p>This is the name other players see in leagues and on leaderboards.</p>
-            <label>
-              Display name
-              <input id="profileNameInput" placeholder="Your pundit name" autocomplete="nickname">
-            </label>
-            <button class="button primary" id="saveProfileName" type="button">Save name</button>
-          </section>
-          <section class="dashboard-panel">
-            <h3>Prediction save status</h3>
-            <p id="onlinePickStatus">Checking the database...</p>
-          </section>
+          <p id="onlinePickStatus" hidden></p>
           <section class="dashboard-panel" id="adminStatsPanel" hidden>
             <div class="wide-head">
               <div>
@@ -2351,20 +2328,13 @@
             <div class="league-list" id="leagueList"></div>
           </section>
           <section class="dashboard-panel">
-            <h3>League members</h3>
-            <p>Every member can see who is playing in this league. Picks open after the deadline so nobody can copy.</p>
-            <div id="slideLeagueMembersList"></div>
-          </section>
-          <section class="dashboard-panel">
             <h3>Leaderboard</h3>
             <p>Scores update when official results are entered.</p>
             <div id="slideLeaderboardTable"></div>
           </section>
-          <section class="dashboard-panel">
-            <h3>Friends' picks</h3>
-            <p id="slideFriendPicksNote">Picks are hidden until the deadline.</p>
-            <div class="friend-picks" id="slideFriendPicks"></div>
-          </section>
+          <div id="slideLeagueMembersList" hidden></div>
+          <p id="slideFriendPicksNote" hidden></p>
+          <div class="friend-picks" id="slideFriendPicks" hidden></div>
         </div>
       </section>
     </main>
@@ -3313,7 +3283,8 @@
 
     function renderLeague() {
       state.league.memberships ||= [];
-      document.getElementById("profileNameInput").value = state.login.squad || "";
+      const profileNameInput = document.getElementById("profileNameInput");
+      if (profileNameInput) profileNameInput.value = state.login.squad || "";
       document.getElementById("leagueNameInput").value = state.league.name || "";
       document.getElementById("leagueCode").textContent = state.league.code || "Not created";
       document.getElementById("joinCodeInput").value = "";
@@ -3536,8 +3507,6 @@
           <span class="league-info"><strong>${escapeHtml(league.name)}</strong> ${escapeHtml(league.status)}</span>
           <span class="league-tools">
             <span>${escapeHtml(league.code)}</span>
-            <button class="mini-button share-button" type="button" data-share-league>Share invite</button>
-            <button class="mini-button" type="button" data-leave-league>Leave</button>
           </span>
         </div>
       `).join("");
@@ -3623,7 +3592,6 @@
           <span class="league-info"><strong>${escapeHtml(league.name)}</strong> ${escapeHtml(league.status)}</span>
           <span class="league-tools">
             <span>${escapeHtml(league.code)}</span>
-            <button class="mini-button" type="button" data-leave-league>Leave</button>
           </span>
         </div>
       `).join("");
@@ -4327,8 +4295,8 @@
 
     document.getElementById("createLeague").addEventListener("click", createLeagueCode);
     document.getElementById("joinLeague").addEventListener("click", joinLeague);
-    document.getElementById("saveProfileName").addEventListener("click", saveProfileName);
-    document.getElementById("profileNameInput").addEventListener("keydown", event => {
+    document.getElementById("saveProfileName")?.addEventListener("click", saveProfileName);
+    document.getElementById("profileNameInput")?.addEventListener("keydown", event => {
       if (event.key === "Enter") saveProfileName();
     });
     document.getElementById("goToMyLeagues").addEventListener("click", async () => {
