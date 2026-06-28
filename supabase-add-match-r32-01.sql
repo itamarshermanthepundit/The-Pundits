@@ -1,32 +1,42 @@
--- The Pundits: add first knockout score-prediction match.
--- Run this in Supabase SQL Editor.
---
--- Match locks automatically at kickoff_at.
--- Time is Israel time: June 28, 2026 at 22:00.
+window.PunditsScoring = {
+  groupPickPoints: 5,
+  awardPickPoints: 20,
+  bracketWinnerPoints: 5,
+  bracketExactScorePoints: 10,
 
-insert into public.official_results (result_type, result_key, value, updated_at)
-values (
-  'match',
-  'R32-01',
-  '{
-    "stage": "Round of 32",
-    "home_team": "South Africa",
-    "away_team": "Canada",
-    "kickoff_at": "2026-06-28T22:00:00+03:00"
-  }'::jsonb,
-  now()
-)
-on conflict (result_type, result_key)
-do update set
-  value = excluded.value,
-  updated_at = now();
+  scoreGroupPredictions(predictions, officialGroups) {
+    return predictions.reduce((total, prediction) => {
+      const official = officialGroups[prediction.group_key] || [];
+      const picked = prediction.ordered_teams || [];
+      return total + picked.reduce((sum, team, index) => (
+        sum + (official[index] === team ? this.groupPickPoints : 0)
+      ), 0);
+    }, 0);
+  },
 
-select
-  result_key as match_key,
-  value->>'stage' as stage,
-  value->>'home_team' as home_team,
-  value->>'away_team' as away_team,
-  value->>'kickoff_at' as locks_at_israel_time
-from public.official_results
-where result_type = 'match'
-  and result_key = 'R32-01';
+  scoreAwards(prediction, officialAwards) {
+    if (!prediction || !officialAwards) return 0;
+    return [
+      ["champion", "champion"],
+      ["top_scorer", "top_scorer"],
+      ["top_assister", "top_assister"]
+    ].reduce((total, [pickKey, resultKey]) => (
+      total + (prediction[pickKey] && prediction[pickKey] === officialAwards[resultKey] ? this.awardPickPoints : 0)
+    ), 0);
+  },
+
+  scoreBracket(predictions, officialMatches) {
+    return predictions.reduce((total, prediction) => {
+      const official = officialMatches[prediction.match_key];
+      if (!official) return total;
+
+      const winnerPoints = prediction.picked_winner === official.winner ? this.bracketWinnerPoints : 0;
+      const exactScorePoints = (
+        Number(prediction.predicted_home_score) === Number(official.home_score) &&
+        Number(prediction.predicted_away_score) === Number(official.away_score)
+      ) ? this.bracketExactScorePoints : 0;
+
+      return total + winnerPoints + exactScorePoints;
+    }, 0);
+  }
+};

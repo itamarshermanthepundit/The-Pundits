@@ -1,42 +1,44 @@
-window.PunditsScoring = {
-  groupPickPoints: 5,
-  awardPickPoints: 20,
-  bracketWinnerPoints: 5,
-  bracketExactScorePoints: 10,
+# The Pundits Online App
 
-  scoreGroupPredictions(predictions, officialGroups) {
-    return predictions.reduce((total, prediction) => {
-      const official = officialGroups[prediction.group_key] || [];
-      const picked = prediction.ordered_teams || [];
-      return total + picked.reduce((sum, team, index) => (
-        sum + (official[index] === team ? this.groupPickPoints : 0)
-      ), 0);
-    }, 0);
-  },
+This folder is the online-ready version of the prediction game.
 
-  scoreAwards(prediction, officialAwards) {
-    if (!prediction || !officialAwards) return 0;
-    return [
-      ["champion", "champion"],
-      ["top_scorer", "top_scorer"],
-      ["top_assister", "top_assister"]
-    ].reduce((total, [pickKey, resultKey]) => (
-      total + (prediction[pickKey] && prediction[pickKey] === officialAwards[resultKey] ? this.awardPickPoints : 0)
-    ), 0);
-  },
+## Files
 
-  scoreBracket(predictions, officialMatches) {
-    return predictions.reduce((total, prediction) => {
-      const official = officialMatches[prediction.match_key];
-      if (!official) return total;
+- `index.html` - player app
+- `admin.html` - admin result entry page
+- `cloud.js` - Supabase connection helpers
+- `scoring.js` - scoring rules
+- `supabase-schema.sql` - database tables and permissions
+- `supabase-config.js` - live Supabase settings
+- `assets/` - local images
 
-      const winnerPoints = prediction.picked_winner === official.winner ? this.bracketWinnerPoints : 0;
-      const exactScorePoints = (
-        Number(prediction.predicted_home_score) === Number(official.home_score) &&
-        Number(prediction.predicted_away_score) === Number(official.away_score)
-      ) ? this.bracketExactScorePoints : 0;
+## Setup
 
-      return total + winnerPoints + exactScorePoints;
-    }, 0);
-  }
-};
+1. Create a Supabase project.
+2. Open the Supabase SQL editor.
+3. Run everything in `supabase-schema.sql`.
+4. In Supabase, go to Project Settings > API.
+5. Copy the Project URL and anon public key.
+6. Paste them into `supabase-config.js`.
+7. Publish this folder with Netlify or Vercel.
+
+## Admin
+
+After signing in once, set your profile as admin in Supabase:
+
+```sql
+update public.profiles
+set is_admin = true
+where email = 'YOUR_EMAIL_HERE';
+```
+
+Then open `/admin.html` on the deployed site.
+
+## Current Scoring
+
+- Correct group-stage position: 5 points
+- Correct champion: 20 points
+- Correct top scorer: 20 points
+- Correct top assister: 20 points
+- Correct Round of 32 winning side: 5 points
+- Correct Round of 32 exact score: 10 points
