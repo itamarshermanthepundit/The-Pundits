@@ -621,6 +621,26 @@
       user-select: none;
     }
 
+    .team.pick-correct {
+      border-color: rgba(22, 137, 74, .55);
+      background: #dff8ea;
+      color: #103b24;
+    }
+
+    .team.pick-wrong {
+      border-color: rgba(203, 54, 54, .5);
+      background: #ffe2e2;
+      color: #4b1717;
+    }
+
+    .team.pick-correct .position {
+      background: #16894a;
+    }
+
+    .team.pick-wrong .position {
+      background: #cb3636;
+    }
+
     .team[draggable="true"] {
       cursor: grab;
     }
@@ -3103,7 +3123,7 @@
         const list = card.querySelector(".team-list");
         groupTeams.forEach((team, index) => {
           const row = document.createElement("div");
-          row.className = "team";
+          row.className = `team ${groupPickResultClass(letter, team, index)}`.trim();
           row.draggable = true;
           row.dataset.team = team;
           row.innerHTML = `
@@ -3123,6 +3143,12 @@
         grid.appendChild(card);
       });
       setPickControlsLocked();
+    }
+
+    function groupPickResultClass(groupKey, team, index) {
+      const official = officialResultMap("group")[groupKey];
+      if (!Array.isArray(official) || official.length === 0) return "";
+      return official[index] === team ? "pick-correct" : "pick-wrong";
     }
 
     function setupGroupInteractions() {
@@ -3851,6 +3877,7 @@
         state.dashboard.lockedAt = ownAward?.locked_at || state.dashboard.lockedAt || "";
       }
       if (officialResult.ok) state.dashboard.officialResults = officialResult.results || [];
+      renderGroups();
       renderDashboard();
     }
 
